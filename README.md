@@ -11,7 +11,6 @@ conda install libboost==1.73.0
 pip install melodia-py (version=0.1.4)
 ```
 
-
 **Tools:**
 ```
 conda install -c conda-forge -c bioconda mmseqs2
