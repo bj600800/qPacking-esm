@@ -1,5 +1,5 @@
 # qPacking
-Exploring hydrophobic stacking patterns in protein folding superfamilies.
+Exploring hydrophobic stacking patterns in protein folding superfamilies from TED database.
 
 **Dependance:**
 ```
