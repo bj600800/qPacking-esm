@@ -4,10 +4,10 @@ Exploring hydrophobic stacking patterns in protein folding superfamilies.
 **Dependance:**
 ```
 python=3.12
-conda install conda-forge::biotite
+conda install conda-forge::biotite (version=1.0.1)
 pip install tqdm
-conda install dssp
-pip install melodia-py
+conda install dssp (version=4.4.8)
+pip install melodia-py (version=0.1.4)
 ```
 
 **Tools:**
