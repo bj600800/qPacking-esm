@@ -206,7 +206,7 @@ def run(protein_name, ss_data, structure_dir, plot_fig=False):
 
                 ca_coords = np.array(ca_coords)
 
-                # start compute attributes
+                # start compute_hydrophobic attributes
                 orientation = calc_axis(ca_coords)
                 length = calc_length(ca_coords)
                 ss_data[s_type][ss_id]['features'] = {'orientation': orientation, 'length': length}
