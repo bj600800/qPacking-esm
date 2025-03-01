@@ -12,7 +12,8 @@ from requests.adapters import Retry
 from tqdm import tqdm
 import subprocess
 
-import logger
+from qpacking.util import logger
+
 logger = logger.setup_log(name=__name__)
 
 #### ARGUMENTS PARSER ####
