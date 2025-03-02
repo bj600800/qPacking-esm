@@ -91,7 +91,6 @@ def get_dssp_dat(input_file_path: object, dssp_bin: object) -> object:
             if curr_ss == 'L' and prev_ss in ['H', 'E'] and next_ss in ['H', 'E']:
                 if prev_ss == next_ss:  # 前后结构一致
                     dssp_dat[i][2] = prev_ss  # 将当前结构改为前后结构相同的那个
-
         return dssp_dat
 
     if stderr:
@@ -107,7 +106,7 @@ def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_tur
     :param min_loop_aa:
     :return:
     """
-    ss_dict = {'helix': {}, 'sheet': {}, 'loop': {}, 'turn':{}}
+    ss_dict = {'helix': {}, 'sheet': {}, 'turn':{}}
 
     # 用来处理每种二级结构类型的计数器
     helix_counter = 1
@@ -134,12 +133,12 @@ def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_tur
             else:
                 # 如果当前氨基酸是'sheet'，且与上一个氨基酸连续，则属于同一个sheet
                 current_sheet.append(entry)
-        elif ss_type == 'L':
-            if not current_loop:
-                current_loop.append(entry)  # 开始一个新的loop
-            else:
-                # 如果当前氨基酸是'Loop'，且与上一个氨基酸连续，则属于同一个loop
-                current_loop.append(entry)
+        # elif ss_type == 'L':
+        #     if not current_loop:
+        #         current_loop.append(entry)  # 开始一个新的loop
+        #     else:
+        #         # 如果当前氨基酸是'Loop'，且与上一个氨基酸连续，则属于同一个loop
+        #         current_loop.append(entry)
         elif ss_type == 'T':
             if not current_turn:
                 current_turn.append(entry)  # 开始一个新的loop
@@ -162,12 +161,12 @@ def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_tur
                 sheet_counter += 1
             current_sheet = []
 
-        if ss_type != 'L' and current_loop:
-            ## continues 2 loop aa
-            if len(current_loop) >= min_loop_aa:
-                ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
-                loop_counter += 1
-            current_loop = []
+        # if ss_type != 'L' and current_loop:
+        #     ## continues 2 loop aa
+        #     if len(current_loop) >= min_loop_aa:
+        #         ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
+        #         loop_counter += 1
+        #     current_loop = []
 
         if ss_type != 'T' and current_turn:
             ## continues 2 loop aa
@@ -181,8 +180,8 @@ def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_tur
         ss_dict['helix'][f'helix_{helix_counter}'] = current_helix
     if current_sheet:
         ss_dict['sheet'][f'sheet_{sheet_counter}'] = current_sheet
-    if current_loop:
-        ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
+    # if current_loop:
+    #     ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
     if current_turn:
         ss_dict['turn'][f'turn_{turn_counter}'] = current_turn
     return ss_dict
