@@ -2,520 +2,232 @@
 # ------------------------------------------------------------------------------
 # Author:    Dou Zhixin
 # Email:     bj600800@gmail.com
-# DATE:      2024/12/12
+# DATE:      2024/11/20
 
-# Description: filter the incomplete TIM fold structures from complete ones.
-# without the massive multiple structure alignments.
+# Description:
+# This code models the structural arrangement of a TIM-barrel domain
+# where 8 beta-sheets form a central circular core, and 8 alpha-helices
+# are positioned in an outer circular ring around the beta-sheets.
+#
+# Key Features:
+# 1. Beta-sheet core: 8 beta-sheets forming a circular structure.
+# 2. Helix outer ring: 8 alpha-helices surrounding the beta-sheet core.
+# 3. Spatial arrangement: Helices are positioned radially outside the beta-sheets.
+#
+# Usage:
+# - This code mainly get the secondary structures from pdb structures
+# - filter.py detect the topology and connectivity of the structures.
 
-detect beta-barrel and alpha-barrel completeness
-
-# if passed the fold filter modules, return true, else return false.
 # ------------------------------------------------------------------------------
 """
 import os
+import sys
+import shutil
+import argparse
+import subprocess
+from pathlib import Path
+from tqdm import tqdm
 
-import networkx as nx
-from pyvis.network import Network
-import itertools
-
-import numpy as np
-import plotly.graph_objects as go
-
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
+from qpacking.data_prepare import filter
 from qpacking.util import logger
 
 logger = logger.setup_log(name=__name__)
 
-def draw_ss_3D(points, group, ss_id, protein_name, fig_dir):
+#### ARGUMENTS PARSER ####
+parser = argparse.ArgumentParser(description='get pdbs')
+parser.add_argument('--dir', required=True, help='working dir')
+parser.add_argument('--src', required=True, help='source dir')
+args = parser.parse_args()
+
+#### END OF ARGUMENTS PARSER ####
+
+def get_dssp_dat(input_file_path: object, dssp_bin: object) -> object:
+    # REFERENCE: https://pdb-redo.eu/dssp/about
+
+    ss_dict = {
+        'E': 'E',  # beta-sheet
+        'B': 'E',  # beta-bridge
+        'H': 'H',  # alpha-helix
+        'G': 'H',  # 3_10 Helix
+        'I': 'H',  # pi-helix
+        'P': 'H',  # kapa-helix
+        'T': 'T',  # Turn
+        'S': 'L',  # Bend
+        ' ': 'L',  # unstructured loop
+    }
+
+    command_args = [dssp_bin, input_file_path]
+
+    process = subprocess.Popen(command_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    stdout, stderr = process.communicate()
+
+    if stdout:
+        dssp_dat = []
+        for line in stdout.split('\n')[28:-1]:
+            # Basic identities
+            res_idx = int(line[5:10])
+            res_name = line[13]
+
+            hbond_list = []
+
+            # H-bonds
+            N_O_1_relative_idx = int(line[38:45])
+            O_N_1_relative_idx = int(line[50:56])
+
+            for i in [N_O_1_relative_idx, O_N_1_relative_idx]:
+                if i:
+                    hbond_list.append(i+res_idx)
+
+            # ss info
+            ss = ss_dict[line[16]]
+            dssp_dat.append([res_idx, res_name, ss, hbond_list])
+
+        # modify the 'L' to 'H' or 'E' if the previous and next are the same.
+        for i in range(1, len(dssp_dat) - 1):
+            prev_ss = dssp_dat[i - 1][2]  # 前一个二级结构
+            curr_ss = dssp_dat[i][2]  # 当前二级结构
+            next_ss = dssp_dat[i + 1][2]  # 后一个二级结构
+
+            if curr_ss == 'L' and prev_ss in ['H', 'E'] and next_ss in ['H', 'E']:
+                if prev_ss == next_ss:  # 前后结构一致
+                    dssp_dat[i][2] = prev_ss  # 将当前结构改为前后结构相同的那个
+        return dssp_dat
+
+    if stderr:
+        logger.error(f"Error for {input_file_path}: {stderr}")
+
+
+def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_turn_aa=1):
     """
-    draw all ss in a figure.
-    To confirm the correctness of the computed regression line and direction vector.
-
-    :param points: {ss_id:[[x,y,z], [x,y,z]], ss_id:[[x,y,z], [x,y,z]]}
-    :param group: {'residues': [[24, 'P', 'H', [0, 4]], [25, 'E', 'H', [2, 4]]}
-    :param ss_id: helix_1
-    :param protein_name: AF-A0A009EPY2-F1-model_v4_TED01
-    :param fig_dir: directory to save figure
-    :return: HTML file
-    """
-
-    res_ids = [res[0] for res in group]
-    residues = [res[1] for res in group]
-
-    # 步骤1：中心化数据，关注趋势而非位置
-    mean_coords = np.mean(points, axis=0)
-    centered_coords = points - mean_coords
-
-    # 使用PCA来计算回归直线
-    pca = PCA(n_components=1)  # 主成分分析，n_components=1表示拟合一条直线
-    pca.fit(centered_coords)
-
-    # 主成分方向，即回归直线的方向
-    line_direction = pca.components_[0]
-
-    # 计算点云的均值（回归直线的起始点）
-    line_start = np.mean(centered_coords, axis=0)
-
-    # 计算点云中距离均值最远的点
-    distances = np.linalg.norm(centered_coords - line_start, axis=1)
-    max_distance_idx = np.argmax(distances)
-
-    # 沿回归直线方向，生成两个端点，距离是点云中最远的距离
-    t_min = -distances[max_distance_idx]  # 负方向上的端点
-    t_max = distances[max_distance_idx]  # 正方向上的端点
-
-    # 计算回归直线的两个端点
-    line_end_1 = line_start + t_min * line_direction
-    line_end_2 = line_start + t_max * line_direction
-
-    # 计算回归直线的长度
-    line_length = np.linalg.norm(line_end_2 - line_end_1)
-
-    # 调整方向向量的长度，使其等于回归直线的长度
-    normalized_direction = line_direction / np.linalg.norm(line_direction)  # 单位化方向向量
-    direction_vector = normalized_direction * line_length / 2  # 调整方向向量的长度为回归直线的长度
-
-    # 创建 Plotly 图形
-    fig = go.Figure()
-
-    # 绘制点云
-    fig.add_trace(go.Scatter3d(
-        x=centered_coords[:, 0], y=centered_coords[:, 1], z=centered_coords[:, 2],
-        mode='markers+text', marker=dict(size=5, color='blue'),
-        text=[f'{res_ids[i]}{residues[i]}' for i in range(len(res_ids))],
-        textposition='top center', name='Points'
-    ))
-
-    # 绘制拟合的回归直线
-    fig.add_trace(go.Scatter3d(
-        x=[line_end_1[0], line_end_2[0]], y=[line_end_1[1], line_end_2[1]], z=[line_end_1[2], line_end_2[2]],
-        mode='lines', line=dict(color='red', width=2),
-        name='Regression Line'
-    ))
-
-    # 绘制回归直线的方向向量
-    fig.add_trace(go.Cone(
-        x=[line_start[0]], y=[line_start[1]], z=[line_start[2]],
-        u=[direction_vector[0]], v=[direction_vector[1]], w=[direction_vector[2]],
-        colorscale='Viridis', showscale=False, sizemode="scaled", sizeref=0.2
-    ))
-
-    # 计算数据的范围，以便调整坐标轴范围
-    axis_min = np.array([centered_coords[:, 0].min(), centered_coords[:, 1].min(), centered_coords[:, 2].min()]).min()
-    axis_max = np.array([centered_coords[:, 0].max(), centered_coords[:, 1].max(), centered_coords[:, 2].max()]).max()
-    x_min, y_min, z_min = axis_min, axis_min, axis_min
-    x_max, y_max, z_max = axis_max, axis_max, axis_max
-
-    # 留出一点额外空间以避免点云贴着边缘
-    margin = 1.1  # 用于扩展坐标轴的范围
-
-    # 设置图形的显示范围和标签
-    fig.update_layout(
-        title=f'{protein_name}: {ss_id}',
-        scene=dict(
-            xaxis_title='X',
-            yaxis_title='Y',
-            zaxis_title='Z',
-            xaxis=dict(
-                range=[x_min - margin, x_max + margin],
-                showgrid=True,
-                zeroline=False,
-                showline=True,
-                linewidth=2,
-                linecolor='black',  # 设置 x 轴为黑色线
-                showticklabels=True,  # 显示刻度标签
-                tickmode='auto',  # 自动生成刻度
-                ticks='outside',  # 刻度标记显示在外部
-                ticklen=5,  # 设置刻度线长度
-            ),
-            yaxis=dict(
-                range=[y_min - margin, y_max + margin],
-                showgrid=True,
-                zeroline=False,
-                showline=True,
-                linewidth=2,
-                linecolor='black',  # 设置 y 轴为黑色线
-                showticklabels=True,  # 显示刻度标签
-                tickmode='auto',  # 自动生成刻度
-                ticks='outside',  # 刻度标记显示在外部
-                ticklen=5,  # 设置刻度线长度
-            ),
-            zaxis=dict(
-                range=[z_min - margin, z_max + margin],
-                showgrid=True,
-                zeroline=False,
-                showline=True,
-                linewidth=2,
-                linecolor='black',  # 设置 z 轴为黑色线
-                showticklabels=True,  # 显示刻度标签
-                tickmode='auto',  # 自动生成刻度
-                ticks='outside',  # 刻度标记显示在外部
-                ticklen=5,  # 设置刻度线长度
-            ),
-            aspectmode="cube"  # 保证x、y、z轴比例相同
-        ),
-        margin=dict(l=10, r=10, b=10, t=40),  # 设置边距
-        title_x=0.5,  # 设置图题居中
-    )
-
-    # 显示图形
-    # fig.show()
-    fig_path = os.path.join(fig_dir, f'{protein_name}_{ss_id}.html')
-    fig.write_html(fig_path)
-    logger.info(f'Saved figure for {protein_name}_{ss_id} to dir: {fig_dir}')
-
-def plot_vectors(vector1, vector2):
-    # 创建 3D 图像
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    # 绘制原点
-    ax.scatter(0, 0, 0, color="black", s=50)  # 原点
-
-    # 绘制向量
-    ax.quiver(0, 0, 0, *vector1, color='r', label="Vector 1", linewidth=2)
-    ax.quiver(0, 0, 0, *vector2, color='b', label="Vector 2", linewidth=2)
-
-    # 设定坐标轴范围
-    ax.set_xlim([-1, 1])
-    ax.set_ylim([-1, 1])
-    ax.set_zlim([-1, 1])
-
-    # 坐标轴标签
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-
-    # 添加图例
-    ax.legend()
-
-    # 显示图像
-    plt.show()
-
-def calc_vector(points):
-    """
-    calculate the axis of each secondary structure
-
-    :param points:
-    :return:
-    orientation vector
-    """
-    # 使用PCA来计算回归直线
-    pca = PCA(n_components=1)  # 主成分分析，n_components=1表示拟合一条直线
-    pca.fit(points)
-
-    # 主成分方向，即回归直线的方向
-    line_direction = pca.components_[0]
-
-    return line_direction
-
-def check_orientation(vector1, vector2):
-    """
-    Check if two vectors are in the same direction.
-
-    :param vector1: First vector
-    :param vector2: Second vector
-    :return: bool - True if vectors are in the same direction, False otherwise
-    """
-    dot_product = np.dot(vector1, vector2)
-    if dot_product > 0:
-
-        return True
-    else:
-        return False
-
-def check_sheet_orientation(sheet1, sheet2, structure):
-    ca_coords_sheet1 = get_ca_coords(sheet1, structure)
-    vector_sheet1 = calc_vector(ca_coords_sheet1)  # first what is , then of whom
-
-    ca_coords_sheet2 = get_ca_coords(sheet2, structure)
-    vector_sheet2 = calc_vector(ca_coords_sheet2)
-    return check_orientation(vector_sheet1, vector_sheet2)
-
-def centroid(points):
-    """
-    Compute the centroid (midpoint) of multiple points in 3D space.
-
-    :param points: List of tuples [(x1, y1, z1), (x2, y2, z2), ...]
-    :return: A tuple representing the centroid (cx, cy, cz)
-    """
-    return tuple(np.mean(points, axis=0))
-
-def distance_3d(point1, point2):
-    """
-    Calculate the Euclidean distance between two points in 3D space.
-
-    :param point1: A tuple (x1, y1, z1) representing the first point
-    :param point2: A tuple (x2, y2, z2) representing the second point
-    :return: Euclidean distance between the two points
-    """
-    return np.linalg.norm(np.array(point1) - np.array(point2))
-
-def get_ca_coords(sheet, structure):
-    """
-    Get the coordinates of the Cα atoms in a β-sheet.
-
-    :param sheet: List of residues in the sheet
-    :param structure: Structure object containing atomic coordinates
-    :return: List of Cα atom coordinates
-    """
-    return [
-        structure[(structure.res_id == res[0]) & (structure.atom_name == "CA")].coord[0]
-        for res in sheet
-    ]
-
-def get_mid_point(sheet, structure):
-    """
-    Calculate the midpoint of a β-sheet.
-
-    :param sheet: List of residues in the sheet
-    :param structure: Structure object containing atomic coordinates
-    :return: Midpoint coordinates of the sheet
-    """
-    return centroid(get_ca_coords(sheet, structure))
-
-def calc_sheet_dist(sheet1, sheet2, structure):
-    """
-    Calculate the distance between the midpoints of two β-sheets.
-
-    :param sheet1: List of residues in the first sheet
-    :param sheet2: List of residues in the second sheet
-    :param structure: Structure object containing atomic coordinates
-    :return: Distance between the midpoints of the two sheets
-    """
-
-    mid_point1 = get_mid_point(sheet1, structure)
-    mid_point2 = get_mid_point(sheet2, structure)
-    return distance_3d(mid_point1, mid_point2)
-
-
-def check_sheet_hbond(sheet1, sheet2):
-    """
-    Check if there is at least one hydrogen bonds between two β-sheets.
-
-    :param sheet1: List of residues in the first sheet
-    :param sheet2: List of residues in the second sheet
-    :return: bool - True if hydrogen bonds exist between sheets, False otherwise
-    """
-    for i in sheet1:
-        for j in sheet2:
-            if i[0] in j[3]:
-                return True
-    return False
-
-
-def draw_graph(G):
-    # 绘制图形
-    nx.draw(G, with_labels=True, node_color='lightblue', node_size=800, edge_color='gray', font_size=12,
-            font_color='black')
-
-    plt.show()
-
-def draw_digraph(G, protein_name):
-    # 创建Pyvis有向网络图
-    net = Network(notebook=True, directed=True, cdn_resources='in_line')
-
-    # 添加节点和边，并根据名称设置颜色
-    for node in G.nodes():
-        color = 'blue'  # 默认颜色
-        if 'sheet' in node:
-            color = '#ffd449'
-        elif 'helix' in node:
-            color = '#d62839'
-        elif 'turn' in node:
-            color = '#4c956c'
-        # 设置节点名称和字体大小
-        net.add_node(node, color=color, title=node, font=dict(size=20))  # 设置字号为20
-
-    # 添加边
-    for edge in G.edges():
-        net.add_edge(edge[0], edge[1])
-
-    # 设置图的布局
-    net.force_atlas_2based()
-
-    # 显示图形
-    net.show(protein_name)
-
-
-def create_sheet_graph(sheet_dict):
-    """
-    Constructs a graph representation of sheets based on their spatial relationships.
-
-    Nodes represent individual sheets, while edges indicate either:
-    - The minimum meeting distance between sheets, or
-    - The presence of a hydrogen bond.
-
-    :param sheet_dict: Dictionary containing sheet data.
-    :param structure: Structural information used to determine connectivity.
-    :return: A graph representation of the sheet network.
-    """
-    graph = nx.Graph()
-    sheet_ids = sheet_dict.keys()
-    for sheet_id in sheet_ids:
-        graph.add_node(sheet_id)
-
-    sheet_combinations = list(itertools.combinations(sheet_ids, 2))
-    for sheet_pair in sheet_combinations:
-        sheet1, sheet2 = sheet_dict[sheet_pair[0]], sheet_dict[sheet_pair[1]]
-        hbond_bool = check_sheet_hbond(sheet1, sheet2)
-        if hbond_bool:
-            graph.add_edge(sheet_pair[0], sheet_pair[1])
-    return graph
-
-
-def is_cycle(G, min_size=8):
-    """
-    Check if a graph contains a cycle with at least a minimum number (i.e. 8) of nodes.
-    :param G:
-    :param min_size:
+    detect topology.
+    :param dssp_dat:
+    :param min_helix_aa:
+    :param min_sheet_aa:
+    :param min_loop_aa:
     :return:
     """
-    try:
-        for cycle in nx.simple_cycles(G):
-            if len(cycle) == min_size:
-                return True
-    except nx.NetworkXNoCycle:
-        return False  # 没有找到环
-    return False
+    ss_dict = {'helix': {}, 'sheet': {}, 'turn':{}}
 
-def detect_beta_barrel(sheet_dict, protein_name):
-    """
-    check graph whether meet the nodes >= 8
-    Criteria:
+    # initialize counter
+    helix_counter = 1
+    sheet_counter = 1
+    loop_counter = 1
+    turn_counter = 1
 
-    Save each β-sheet as a node, with an edge between nodes if the distance between them is less than 5 Å or if a hydrogen bond exists between them.
+    # init current ss
+    current_helix = []
+    current_sheet = []
+    current_loop = []
+    current_turn = []
 
-    A complete TIM barrel is defined as having 8 nodes.
+    # classify ss with dicts
+    for entry in dssp_dat:
+        ss_type= entry[2]
+        if ss_type == 'H':
+            if not current_helix:
+                current_helix.append(entry)
+            else:
+                current_helix.append(entry)
+        elif ss_type == 'E':
+            if not current_sheet:
+                current_sheet.append(entry)
+            else:
+                current_sheet.append(entry)
+        # elif ss_type == 'L':
+        #     if not current_loop:
+        #         current_loop.append(entry)  # 开始一个新的loop
+        #     else:
+        #         # 如果当前氨基酸是'Loop'，且与上一个氨基酸连续，则属于同一个loop
+        #         current_loop.append(entry)
+        elif ss_type == 'T':
+            if not current_turn:
+                current_turn.append(entry)
+            else:
+                current_turn.append(entry)
 
-    :return: bool: True if the structure is complete, False incomplete.
-    """
-    graph = create_sheet_graph(sheet_dict)
-    sheet_bool = is_cycle(graph)
-    if not sheet_bool:
-        draw_digraph(graph, protein_name)
-    return sheet_bool
+        # if different ss, save the current chain.
+        if ss_type != 'H' and current_helix:
+            if len(current_helix) >= min_helix_aa:
+                ss_dict['helix'][f'helix_{helix_counter}'] = current_helix
+                helix_counter += 1
+            current_helix = []
 
+        if ss_type != 'E' and current_sheet:
+            if len(current_sheet) >= min_sheet_aa:
+                ss_dict['sheet'][f'sheet_{sheet_counter}'] = current_sheet
+                sheet_counter += 1
+            current_sheet = []
 
-def order_ss_id(ss_dict):
-    """
-    Order the secondary structure elements in the protein sequence.
+        # if ss_type != 'L' and current_loop:
+        #     ## continues 2 loop aa
+        #     if len(current_loop) >= min_loop_aa:
+        #         ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
+        #         loop_counter += 1
+        #     current_loop = []
 
-    :param ss_dict: Dictionary containing secondary structure information.
-    :return: Ordered list of secondary structure elements id.
-    """
-    merge_dict = {ss_id: list(map(lambda x: x[0], ss)) for i in ss_dict.values() for ss_id, ss in i.items() if ss_id }
-    sorted_structures = sorted(merge_dict.items(), key=lambda x: min(x[1]))
+        if ss_type != 'T' and current_turn:
+            if len(current_turn) >= min_turn_aa:
+                ss_dict['turn'][f'turn_{turn_counter}'] = current_turn
+                turn_counter += 1
+            current_turn = []
 
-    # sorted_structures output:
-    # sheet_1: [7, 8]
-    # turn_1: [10, 11, 12]
-
-    sorted_ss = [ss[0] for ss in sorted_structures]
-    return sorted_ss
-
-
-def create_ss_digraph(sorted_ss):
-    """
-    Create a directed graph of secondary structure elements.
-
-    :param sorted_ss: Ordered list of secondary structure elements id.
-    :return: Directed graph of secondary structure elements.
-    """
-    digraph = nx.DiGraph()
-    digraph.add_nodes_from(sorted_ss)
-    for i in range(len(sorted_ss) - 1):
-        digraph.add_edge(sorted_ss[i], sorted_ss[i + 1])
-    return digraph
-
-
-def search_digraph_motif(graph):
-    """
-        计算 graph 中相邻 sheet 之间是否至少包含 1 个 helix 和 1 个 turn 的情况次数，
-        并检查 sheet_8 之后是否存在 helix。
-
-        :param digraph: list[str]，表示二级结构的序列
-        :return: tuple(int, bool, bool)，(符合条件的次数, 是否至少出现 7 次, sheet_8 之后是否存在 helix)
-        """
-    # 记录符合条件的次数
-    valid_transitions = 0
-    ss_ids = list(graph.nodes)
-    # 记录 sheet 的索引
-    sheet_indices = [i for i, x in enumerate(graph) if x.startswith('sheet')]
-
-    # 遍历相邻的 sheet 组，检查是否满足条件
-    for i in range(len(sheet_indices) - 1):
-        start, end = sheet_indices[i], sheet_indices[i + 1]
-
-        # 如果 graph 是 networkx 图，需要先获取节点列表
-
-        nodes_list = list(graph.nodes)[start + 1:end]
+    # save the remains
+    if current_helix:
+        ss_dict['helix'][f'helix_{helix_counter}'] = current_helix
+    if current_sheet:
+        ss_dict['sheet'][f'sheet_{sheet_counter}'] = current_sheet
+    # if current_loop:
+    #     ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
+    if current_turn:
+        ss_dict['turn'][f'turn_{turn_counter}'] = current_turn
+    return ss_dict
 
 
-        has_helix = any(x.startswith('helix') for x in nodes_list)
-        # has_turn = any(x.startswith('turn') for x in nodes_list)
-        if has_helix:
-            valid_transitions += 1
-        # 记录第 7 次满足条件后，剩余部分的索引
-        if valid_transitions == 7:
-            for ss_id in ss_ids[end:]:
-                if ss_id.startswith('helix'):
-                    return True
+def run(dssp_bin="mkdssp"):
+    working_dir = args.dir
+    source_dir = args.src
+    log_file = os.path.join(working_dir, "processed_files.log")
 
-    return False
+    true_dir = os.path.join(working_dir, 'complete')
+    os.makedirs(true_dir, exist_ok=True)
 
+    false_dir = os.path.join(working_dir, 'incomplete')
+    os.makedirs(false_dir, exist_ok=True)
 
-
-
-
-def detect_alpha_barrel(ss_dict, protein_name):
-    """
-    Using digraph to store secondary structure.
-    Meet the β-T-α-T-β motif, where there is an α-helix between two β-sheets and two Turns.
-    Eventually, the structure consists of 8 α-helices and 8 β-sheets.
-
-    :return: bool
-    """
-    sorted_ss = order_ss_id(ss_dict)
-    digraph = create_ss_digraph(sorted_ss)
-    barrel_bool = search_digraph_motif(digraph)
-    if not barrel_bool:
-        draw_digraph(digraph, protein_name)
-    return barrel_bool
-
-
-
-def run(ss_dict, protein_name):
-    """
-    Run for filtering if the structure is a TIM barrel.
-    :param protein_name:
-    :param ss_dict:
-    :param structure_dir:
-    :return: bool
-    """
-
-    protein_name = protein_name + '.html'
-    # check ß-sheet barrel
-    sheet_dict = ss_dict['sheet']
-    sheet_bool = detect_beta_barrel(sheet_dict, protein_name)
-    # check ∂-helix barrel
-    alpha_bool = detect_alpha_barrel(ss_dict, protein_name)
-    if sheet_bool and alpha_bool:
-        return True
+    # 读取已处理文件列表
+    if os.path.exists(log_file):
+        with open(log_file, "r") as f:
+            processed_files = set(f.read().splitlines())
     else:
-        return False
+        processed_files = set()
+
+    pdb_files = list(Path(source_dir).glob("*.pdb"))
+
+    for structure_path in tqdm(pdb_files, desc='Filtering complete TIM barrel'):
+        file_name = structure_path.stem
+
+        # skip processed files
+        if file_name in processed_files:
+            print(f"skip logged file: {file_name}.pdb")
+            continue
+
+        dssp_dat = get_dssp_dat(structure_path, dssp_bin=dssp_bin)
+        ss_dict = get_ss_dict(dssp_dat)
+        fold_bool = filter.run(ss_dict)
+
+        if fold_bool:
+            target_path = os.path.join(true_dir, file_name + '.pdb')
+        else:
+            target_path = os.path.join(false_dir, file_name + '.pdb')
+
+        shutil.copy(structure_path, target_path)
+
+        # log the processed file
+        with open(log_file, "a") as f:
+            f.write(file_name + "\n")
 
 
 if __name__ == '__main__':
-    from qpacking.data_prepare import identify_ss
-    dssp_bin = "mkdssp"
-    struct_dir = r"/Users/douzhixin/Developer/qPacking/code/test"
-    for file in os.listdir(struct_dir):
-        if file.endswith(".pdb"):
-            protein_name = file.split(".")[0]
-            structure_path = os.path.join(struct_dir, protein_name+'.pdb')
-            dssp_dat = identify_ss.get_dssp_dat(structure_path, dssp_bin=dssp_bin)
-            ss_dict = identify_ss.get_ss_dict(dssp_dat)
-            fold_bool = run(ss_dict, protein_name)
-            print(f'{protein_name} is a TIM barrel: {fold_bool}')
+    struct_dir = r"/Users/douzhixin/developer/qpacking/data/test"
+    run()
