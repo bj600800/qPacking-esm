@@ -4,6 +4,6 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/2/14
 
-# Description: test model performance
+# Description: test models performance
 # ------------------------------------------------------------------------------
 """

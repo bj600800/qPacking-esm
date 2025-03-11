@@ -24,7 +24,7 @@ import plotly.graph_objects as go
 
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-from qpacking.util import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 

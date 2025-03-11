@@ -12,7 +12,7 @@ from requests.adapters import Retry
 from tqdm import tqdm
 import subprocess
 
-from qpacking.util import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 

@@ -34,7 +34,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from qpacking.data_prepare import filter
-from qpacking.util import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 

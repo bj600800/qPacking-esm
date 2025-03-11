@@ -18,3 +18,16 @@ pip install pdb-tools
 conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
+
+**Directory functions:**
+- checkpoints: Contains the checkpoints for the model.
+- data: Contains the data files.
+- experiments: different experimental configurations for experiment management and reproducibility.
+- logs: Contains the logs for the experiments.
+- qpacking: Contains the main codes for the project.
+  - data_prepare: Contains the codes for data preparation.
+  - dataset: Contains the codes for dataset preparation.
+  - hydrocluster: hydrophobic cluster calculation
+  - models: Contains the codes for the models.
+  - scripts: train, test, and evaluation scripts.
+  - utils: Contains the utility codes for reuse.
