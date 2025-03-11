@@ -20,8 +20,13 @@
 
 # ------------------------------------------------------------------------------
 """
-import os
 import sys
+from pathlib import Path
+module_path = Path('/Users/douzhixin/Developer/qPacking/code').resolve()
+if module_path not in sys.path:
+    sys.path.append(str(module_path))
+
+import os
 import shutil
 import argparse
 import subprocess
@@ -206,26 +211,26 @@ def run(dssp_bin="mkdssp"):
 
     for structure_path in tqdm(pdb_files, desc='Filtering complete TIM barrel'):
         file_name = structure_path.stem
+        if file_name == 'AF-A0A009ER02-F1-model_v4_TED01':
+            # skip processed files
+            if file_name in processed_files:
+                print(f"skip logged file: {file_name}.pdb")
+                continue
 
-        # skip processed files
-        if file_name in processed_files:
-            print(f"skip logged file: {file_name}.pdb")
-            continue
+            dssp_dat = get_dssp_dat(structure_path, dssp_bin=dssp_bin)
+            ss_dict = get_ss_dict(dssp_dat)
+            fold_bool = filter.run(ss_dict, file_name)
 
-        dssp_dat = get_dssp_dat(structure_path, dssp_bin=dssp_bin)
-        ss_dict = get_ss_dict(dssp_dat)
-        fold_bool = filter.run(ss_dict)
+            if fold_bool:
+                target_path = os.path.join(true_dir, file_name + '.pdb')
+            else:
+                target_path = os.path.join(false_dir, file_name + '.pdb')
 
-        if fold_bool:
-            target_path = os.path.join(true_dir, file_name + '.pdb')
-        else:
-            target_path = os.path.join(false_dir, file_name + '.pdb')
+            shutil.copy(structure_path, target_path)
 
-        shutil.copy(structure_path, target_path)
-
-        # log the processed file
-        with open(log_file, "a") as f:
-            f.write(file_name + "\n")
+            # log the processed file
+            with open(log_file, "a") as f:
+                f.write(file_name + "\n")
 
 
 if __name__ == '__main__':

@@ -7,13 +7,16 @@ from tqdm import tqdm
 #### ARGUMENTS PARSER ####
 parser = argparse.ArgumentParser(description='create db')
 
+parser.add_argument('--tsv', required=True, help='ted tsv path')
 parser.add_argument('--cath', required=True, help='cath label')
+parser.add_argument('--dir', required=True, help='working dir')
+
 
 args = parser.parse_args()
 
 #### END OF ARGUMENTS PARSER ####
 cath_id = args.cath
-wk_dir = r"/home/u2600215/qpacking/data/ted/"
+wk_dir = args.dir
 # 连接到SQLite数据库（如果数据库不存在，会自动创建）
 conn = sqlite3.connect(os.path.join(wk_dir, f"{cath_id}.db"))
 cursor = conn.cursor()
@@ -54,7 +57,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 # 读取TSV文件并批量插入数据
 batch_size = 500000  # 每批插入的行数
 total_rows = 364806077
-tsv_path = os.path.join(wk_dir, "ted_365m_summary.tsv")
+tsv_path = args.tsv
 with open(tsv_path, 'r') as file:
     tsv_reader = csv.reader(file, delimiter='\t')
     batch = []

@@ -16,11 +16,11 @@ detect beta-barrel and alpha-barrel completeness
 import os
 
 import networkx as nx
-# from pyvis.network import Network
+from pyvis.network import Network
 import itertools
 
 import numpy as np
-# import plotly.graph_objects as go
+import plotly.graph_objects as go
 
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
@@ -350,6 +350,8 @@ def create_sheet_graph(sheet_dict):
         hbond_bool = check_sheet_hbond(sheet1, sheet2)
         if hbond_bool:
             graph.add_edge(sheet_pair[0], sheet_pair[1])
+    draw_graph(graph)
+    input()
     return graph
 
 
@@ -381,8 +383,8 @@ def detect_beta_barrel(sheet_dict):
     """
     graph = create_sheet_graph(sheet_dict)
     sheet_bool = is_cycle(graph)
-    # if not sheet_bool:
-    #     draw_digraph(graph, protein_name)
+
+
     return sheet_bool
 
 
@@ -446,7 +448,7 @@ def search_digraph_motif(graph):
 
 
 
-def detect_alpha_barrel(ss_dict):
+def detect_alpha_barrel(ss_dict, protein_name):
     """
     Using digraph to store secondary structure.
     Meet the β-T-α-T-β motif, where there is an α-helix between two β-sheets and two Turns.
@@ -456,12 +458,13 @@ def detect_alpha_barrel(ss_dict):
     """
     sorted_ss = order_ss_id(ss_dict)
     digraph = create_ss_digraph(sorted_ss)
+    draw_digraph(digraph, protein_name)
     barrel_bool = search_digraph_motif(digraph)
     return barrel_bool
 
 
 
-def run(ss_dict):
+def run(ss_dict, protein_name):
     """
     Run for filtering if the structure is a TIM barrel.
     :param protein_name:
@@ -470,32 +473,14 @@ def run(ss_dict):
     :return: bool
     """
 
-    # protein_name = protein_name + '.html'
+    protein_name = protein_name + '.html'
     # check beta-sheet barrel
     sheet_dict = ss_dict['sheet']
     sheet_bool = detect_beta_barrel(sheet_dict)
     # check alpha-helix barrel
-    alpha_bool = detect_alpha_barrel(ss_dict)
+    alpha_bool = detect_alpha_barrel(ss_dict, protein_name)
     if sheet_bool and alpha_bool:
         return True
     else:
         return False
 
-
-if __name__ == '__main__':
-    import time
-    from qpacking.data_prepare import fold_filter
-    time1 = time.time()
-    dssp_bin = "mkdssp"
-    struct_dir = r"/Users/douzhixin/Developer/qPacking/code/test"
-    for file in os.listdir(struct_dir):
-        if file.endswith(".pdb"):
-            protein_name = file.split(".")[0]
-            structure_path = os.path.join(struct_dir, protein_name+'.pdb')
-            dssp_dat = identify_ss.get_dssp_dat(structure_path, dssp_bin=dssp_bin)
-            ss_dict = identify_ss.get_ss_dict(dssp_dat)
-            fold_bool = run(ss_dict)
-            # print(f'{protein_name} is a TIM barrel: {fold_bool}')
-    time2 = time.time()
-    print(len(os.listdir(struct_dir)))
-    print("consuming: ", time2-time1)
