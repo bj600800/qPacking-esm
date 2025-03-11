@@ -1,7 +1,7 @@
 # qPacking
 Exploring hydrophobic stacking patterns in protein folding superfamilies from TED database, laveraging ESMC-600M model.
 
-**Dependance:**
+**Dependence:**
 ```
 python=3.19
 pip install tqdm

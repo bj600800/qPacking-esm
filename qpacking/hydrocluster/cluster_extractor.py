@@ -181,6 +181,6 @@ def analyze(structure_file):
 
 
 if __name__ == '__main__':
-    structure_file = r"/Users/douzhixin/developer/qpacking/code/test/AF-A0A009EPY2-F1-model_v4_TED01.pdb"
+    structure_file = r"/Users/douzhixin/Developer/qPacking/code/data/processed/complete/AF-A0A009ER02-F1-model_v4_TED01.pdb"
     ret = analyze(structure_file)
     print(ret)
