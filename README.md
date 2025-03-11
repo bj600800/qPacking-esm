@@ -19,7 +19,7 @@ conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
 
-**Directory functions:**
+**Directory function:**
 - checkpoints: Contains the checkpoints for the model.
 - data: Contains the data files.
 - experiments: different experimental configurations for experiment management and reproducibility.
