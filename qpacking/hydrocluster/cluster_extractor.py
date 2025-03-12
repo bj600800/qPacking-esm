@@ -84,24 +84,6 @@ def create_hydrophobic_graph(res_pairs):
     return graph
 
 
-
-def calculate_res_frequency(cluster_res_names):
-    """
-
-    Args:
-        cluster_res_names: LIST, List of residue IDs in the cluster.
-
-    Returns:
-    dict: {aa: f}
-    """
-    res_frequency = {'LEU': 0, 'ILE': 0, 'VAL': 0}
-    total_res = len(cluster_res_names)
-    res_count = Counter(cluster_res_names)
-    for res_name, count in res_count.items():
-        res_frequency[res_name] = count / total_res
-    return res_frequency
-
-
 def print_cluster_residue(node_ids):
     """
     Print the residue IDs for a cluster in a format suitable for PyMol selection.
@@ -128,7 +110,7 @@ def get_seq_len(structure):
     return seq_len
 
 
-def operate_hydrophobic_clusters(structure):
+def run(structure_file):
     """
     Operate on hydrophobic clusters to calculate their areas and print PyMol selection commands.
 
@@ -138,49 +120,22 @@ def operate_hydrophobic_clusters(structure):
     Returns:
     float: Total area of hydrophobic clusters.
     """
+    structure = strucio.load_structure(structure_file)
+
     res_pairs = detect_hydrophobic_pair(structure)
     G = create_hydrophobic_graph(res_pairs)
     connected_components = nx.connected_components(G)
     
-    cluster_ret_list = []
+    connected_graphs = []
     
     for component in connected_components:
-        if len(component) > 1:
+        if len(component) >= 3:
             component_subgraph = G.subgraph(component)
-            
-            # res ids
-            nodes = list(component_subgraph.nodes())
-            # res names
-            node_labels = nx.get_node_attributes(G, 'res_name')
-            res_names = [node_labels[node] for node in nodes]
-            
-            
-            ################# Calculation #################
-            # 1. calc res frequency: cluster level
-            res_frequency = calculate_res_frequency(res_names)
-            
-            # append cluster results
-            cluster_ret_list.append({"res_frequency": res_frequency})
-            
-            ## print pymol command
-            print_cluster_residue(nodes)
-    
-    return cluster_ret_list
-
-
-def analyze(structure_file):
-    """
-    Analyze the hydrophobic clusters in a structure file.
-
-    Parameters:
-    structure_file (str): Path to the structure file.
-    """
-    structure = strucio.load_structure(structure_file)
-    return operate_hydrophobic_clusters(structure)
-    
+            # print(component_subgraph.nodes(data=True))
+            connected_graphs.append(component_subgraph)
+    return connected_graphs
 
 
 if __name__ == '__main__':
     structure_file = r"/Users/douzhixin/Developer/qPacking/code/data/processed/complete/AF-A0A009ER02-F1-model_v4_TED01.pdb"
-    ret = analyze(structure_file)
-    print(ret)
+    ret = run(structure_file)
