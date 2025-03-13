@@ -133,7 +133,7 @@ def run(structure_file):
             component_subgraph = G.subgraph(component)
             # print(component_subgraph.nodes(data=True))
             connected_graphs.append(component_subgraph)
-    return connected_graphs
+    return connected_graphs, structure
 
 
 if __name__ == '__main__':
