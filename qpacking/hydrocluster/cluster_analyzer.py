@@ -35,59 +35,6 @@ class Analyzer:
         self.cluster_graphs = cluster_graphs
         self.structure = structure
 
-    def draw_graph(self, G):
-        pos = nx.spring_layout(G)  # 生成布局，使节点分布合理
-
-        # 获取边
-        edge_x = []
-        edge_y = []
-        for edge in G.edges():
-            x0, y0 = pos[edge[0]]
-            x1, y1 = pos[edge[1]]
-            edge_x.extend([x0, x1, None])  # None 用于断开线段
-            edge_y.extend([y0, y1, None])
-
-        edge_trace = go.Scatter(
-            x=edge_x, y=edge_y,
-            line=dict(width=1, color="gray"),
-            hoverinfo="none",
-            mode="lines"
-        )
-
-        # 获取节点
-        node_x = []
-        node_y = []
-        node_text = []
-        for node in G.nodes():
-            x, y = pos[node]
-            node_x.append(x)
-            node_y.append(y)
-            node_text.append(f"residue {node} (度: {G.degree[node]})")  # 鼠标悬停显示度数
-
-        node_trace = go.Scatter(
-            x=node_x, y=node_y,
-            mode="markers+text",
-            textposition="top center",
-            hoverinfo="text",
-            text=node_text,
-            marker=dict(
-                size=15,
-                color="lightblue",
-                line=dict(width=2, color="black")
-            )
-        )
-
-        fig = go.Figure(data=[edge_trace, node_trace])
-        fig.update_layout(
-            showlegend=False,
-            hovermode="closest",
-            margin=dict(b=0, l=0, r=0, t=0),
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
-        )
-
-        fig.show()
-
 
     def draw_graph_interactive(self, G, output_file="graph.html"):
         net = Network(notebook=True, directed=False, cdn_resources='in_line')
@@ -137,7 +84,6 @@ class Analyzer:
 
 
     def get_degree(self):
-
         for G in self.cluster_graphs:
             degree_dict = dict(G.degree())
             # 打印每个节点的度
