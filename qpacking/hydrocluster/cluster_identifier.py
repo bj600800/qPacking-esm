@@ -84,32 +84,6 @@ def create_hydrophobic_graph(res_pairs):
     return graph
 
 
-def print_cluster_residue(node_ids):
-    """
-    Print the residue IDs for a cluster in a format suitable for PyMol selection.
-
-    Parameters:
-    node_ids (list): List of residue IDs in the cluster.
-    """
-    res_str = 'sele res ' + '+'.join([str(i) for i in node_ids])
-    print(res_str)
-
-
-def get_seq_len(structure):
-    """
-    Get the sequence length of the structure.
-
-    Parameters:
-    structure (AtomArray): The structure to analyze.
-
-    Returns:
-    int: Length of the sequence.
-    """
-    res_id, res_name = struc.get_residues(structure)
-    seq_len = len(res_id)
-    return seq_len
-
-
 def run(structure_file):
     """
     Operate on hydrophobic clusters to calculate their areas and print PyMol selection commands.
@@ -131,7 +105,6 @@ def run(structure_file):
     for component in connected_components:
         if len(component) >= 3:
             component_subgraph = G.subgraph(component)
-            # print(component_subgraph.nodes(data=True))
             connected_graphs.append(component_subgraph)
     return connected_graphs, structure
 

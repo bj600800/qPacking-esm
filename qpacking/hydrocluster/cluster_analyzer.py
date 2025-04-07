@@ -13,20 +13,20 @@
 """
 import os
 import pickle
-import subprocess
+import json
 import concurrent.futures
 import multiprocessing
+
 from tqdm import tqdm
 from pathlib import Path
 import networkx as nx
-import plotly.graph_objects as go
-from pyvis.network import Network
-import matplotlib.colors as mcolors
+import numpy as np
 
-from qpacking.hydrocluster import cluster_extractor
-from qpacking.utils import logger
-logger = logger.setup_log(name=__name__)
-
+from biotite.structure.info import vdw_radius_single
+from qpacking.hydrocluster import cluster_identifier
+from qpacking.utils import visualization
+from qpacking.utils.logger import setup_log
+logger = setup_log(name=__name__, enable_file_log=False)
 
 
 class Analyzer:
@@ -35,184 +35,186 @@ class Analyzer:
         self.cluster_graphs = cluster_graphs
         self.structure = structure
 
+    @staticmethod
+    def resi_area():
+        r_vdw = vdw_radius_single("C")
+        pi = np.pi
+        ile_area = 4 * 4 * pi * r_vdw ** 2
+        leu_area = 4 * 4 * pi * r_vdw ** 2
+        val_area = 3 * 4 * pi * r_vdw ** 2
+        area = {'ILE': round(ile_area,2), 'LEU': round(leu_area,2), 'VAL': round(val_area,2)}
+        return area
 
-    def draw_graph_interactive(self, G, output_file="graph.html"):
-        net = Network(notebook=True, directed=False, cdn_resources='in_line')
-        G = nx.relabel_nodes(G, lambda x: str(x))
-        net.from_nx(G)  # 载入 networkx 图
+    @staticmethod
+    def get_area(G, res_area_dict):
+        node_labels = nx.get_node_attributes(G, 'res_name')
+        area_feature = {str(res_id): res_area_dict[res_name] for res_id, res_name in node_labels.items()}
+        return area_feature
 
-        # 获取最大度数，用于归一化
-        max_degree = max(dict(G.degree).values()) if G.number_of_nodes() > 0 else 1
-
-        # 定义颜色映射函数
-        def get_color(degree):
-            base_color = mcolors.hex2color("#0d47a1")
-            min_color = [c + (1 - c) for c in base_color]
-            factor = degree / max_degree  # 归一化
-            color = [(1 - factor) * min_c + factor * base_c for min_c, base_c in zip(min_color, base_color)]
-            return mcolors.to_hex(color)
-
-        # 设置节点样式
-        for node in G.nodes():
-            degree = G.degree[node]
-            net.get_node(node)["color"] = get_color(degree)
-            net.get_node(node)["size"] = 15
-            net.get_node(node)["label"] = f"residue {node} (degree: {degree})"
-
-        # 生成 HTML 并打开
-        net.show(output_file)
-        print(f"交互式图已生成：{output_file}")
-
-    def show_hydrocluster_pymol(self):
-        pymol_bin = 'pymol'
-        cmd = []
-        for i, cluster in enumerate(self.cluster_graphs):
-            command = f"sele Cluster {i}, res {'+'.join([str(res_id) for res_id in cluster.nodes()])}"
-            cmd.append(command)
-        pymol_cmd = '; '.join(cmd)
-
-        # get Anaconda base environment path
-        conda_base = r"/opt/anaconda3"
-        pymol_path = os.path.join(conda_base, "bin")
-
-        # add base pymol dir to the current environmental variable path
-        os.environ["PATH"] = pymol_path + os.pathsep + os.environ["PATH"]
-
-        command_args = [pymol_bin, self.pdb_file, '-d', pymol_cmd]
-        process = subprocess.Popen(command_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        process.communicate()
-
-
-    def get_degree(self):
-        for G in self.cluster_graphs:
-            degree_dict = dict(G.degree())
-            # 打印每个节点的度
-            for node, degree in degree_dict.items():
-                print(f"residue {node} degree：{degree}")
-
-            self.draw_graph_interactive(G)
-            input()
-        self.show_hydrocluster_pymol()
-
-    def calc_contact_count(self):
-        pass
+    @staticmethod
+    def get_degree(G):
+        degree_feature = {}
+        degree_dict = dict(G.degree())
+        for node, degree in degree_dict.items():
+            degree_feature[str(node)] = degree
+        return degree_feature
 
     def run(self):
-        self.get_degree()
-        self.calc_contact_count()
+        raw_struct_features = {'area': {}, 'degree': {}}
+        res_area_dict = self.resi_area()
+        visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        for G in self.cluster_graphs:
+            area_feature = self.get_area(G, res_area_dict)
+            raw_struct_features['area'].update(area_feature)
 
+            degree_feature = self.get_degree(G)
+            raw_struct_features['degree'].update(degree_feature)
 
         # clean cache
         self.cluster_graphs = None
         self.structure = None
-
-        return None
-
-    @staticmethod
-    def file_writer(queue, output_file):
-        """consumer: write pkl file with FIFO"""
-        with open(output_file, "ab") as f:  # 追加模式
-            while True:
-                result = queue.get()
-                if result is None:
-                    break
-                pickle.dump(result, f)  # 逐条写入 pkl 文件
-        logger.info(f"Results saved to {output_file}")
+        input()
+        return raw_struct_features
 
     @staticmethod
-    def log_processed_file(pdb_file, log_file):
-        with open(log_file, "a") as f:
-            f.write(str(pdb_file) + "\n")
+    def load_existing_results(output_file):
+        """
+        Load existing results from a pickle file.
+        :param output_file: existing results file
+        :return: a dictionary containing loaded results
+        """
+        try:
+            with open(output_file, "rb") as f:
+                results_dict = pickle.load(f)  # output file only 1 obj.
+                if not isinstance(results_dict, dict):
+                    logger.error(f"Loaded object is not a dictionary: {type(results_dict)}")
+                    return {}
+                return results_dict
+        except (FileNotFoundError, EOFError):
+            return {}
+        except Exception as e:
+            logger.error(f"An error occurred while loading pickle file: {e}")
+            return {}
 
     @staticmethod
-    def load_processed_files(log_file):
-        if os.path.exists(log_file):
-            with open(log_file, "r") as f:
-                return set(Path(line.strip()) for line in f)
-        return set()
+    def file_writer(queue, output_file, buffer_size=10000):
+        """
+        Consumer thread to write all results (new and old) to a file.
+        Each buffer write once for each result.
+        :param queue:
+        :param output_file: pkl
+        :param buffer_size:
+        :return:
+        """
+        # Load existing results before updating
+        results = Analyzer.load_existing_results(output_file)  # persistence variable
 
-    @staticmethod
-    def process_pdb_file(pdb_file, queue, processed_log, log_file):
-        """producer for one file"""
-        if pdb_file in processed_log:
-            return
+        buffer = []
 
-        cluster_graphs, structure = cluster_extractor.run(pdb_file)
-        analyzer = Analyzer(cluster_graphs, structure, pdb_file)
+        while True:
+            result = queue.get()
+            if result is None:
+                break
+            elif isinstance(result, dict):
+                buffer.append(result)
+                if len(buffer) >= buffer_size:
+                    results.update({k: v for d in buffer for k, v in d.items()})
+                    with open(output_file, "wb") as f:
+                        pickle.dump(results, f)
+                    buffer.clear()
+            else:
+                logger.error(f"Received object is not a dictionary: {result}")
+
+        if buffer:
+            results.update({k: v for d in buffer for k, v in d.items()})
+            with open(output_file, "wb") as f:
+                pickle.dump(results, f)
+
+        logger.info(f"Total pdb files collected: {len(results)}")
+
+    @classmethod
+    def process_pdb_file(cls, pdb_file, queue):
+        cluster_graphs, structure = cluster_identifier.run(pdb_file)
+        analyzer = cls(cluster_graphs, structure, pdb_file)
         result = analyzer.run()
 
         # FIFO parallel processing: put result into queue
-        queue.put((pdb_file, result))  # 结果入队列
-
-        # Task logging
-        Analyzer.log_processed_file(pdb_file, log_file)  # 记录到日志文件
-
+        pdb_name = pdb_file.stem
+        queue.put({pdb_name: result})  # 结果入队列
 
 
     @classmethod
-    def batch_process_pdb_directory(cls, pdb_directory, output_file, log_file):
-        # get available cpu cores
+    def batch_process_pdb_files(cls, pdb_directory, output_pkl_file):
         num_workers = multiprocessing.cpu_count()
 
         #TODO: Remove this debug block before production
-        if os.path.exists(log_file):
-            os.remove(log_file)
+        if os.path.exists(output_pkl_file):
+            os.remove(output_pkl_file)
         num_workers = 1
+        logger.info("workers 1 for debug.")
         #TODO: Remove this debug block before production
 
         logger.info(f"Starting {num_workers} producer threads and 1 consumer thread.")
 
-        pdb_files = list(Path(pdb_directory).glob("*.pdb"))[:1]
-        processed_files = cls.load_processed_files(log_file)
-        total_tasks = len(pdb_files) - len(processed_files)
+        pdb_files = list(Path(pdb_directory).glob("*.pdb"))
 
-        if total_tasks == 0:
-            logger.info("All files have been processed.")
-            # return
+        if os.path.exists(output_pkl_file):
+            existing_results = list(cls.load_existing_results(output_pkl_file).keys())
+            logger.info(f"Existing results loaded from {output_pkl_file}: {len(existing_results)}")
         else:
-            logger.info(f"Total input: {len(pdb_files)}")
-            logger.info(f"Processed tasks: {len(processed_files)}")
-            logger.info(f"TODO tasks: {total_tasks}")
+            existing_results = {}
 
-        # share queue
+        tasks = [i for i in pdb_files if i.stem not in existing_results]
+        task_count = len(tasks)
+
+        if task_count == 0:
+            logger.info("All files have been processed.")
+            # load_existing_results = Analyzer.load_existing_results(output_pkl_file)
+            # json_output = json.dumps(load_existing_results, indent=1)
+            # print(json_output)
+            return
+        else:
+            logger.info(f"Task number: {task_count}")
+
         queue = multiprocessing.Queue()
 
         # start consumer thread
-        writer_process = multiprocessing.Process(target=cls.file_writer, args=(queue, output_file))
+        writer_process = multiprocessing.Process(target=cls.file_writer, args=(queue, output_pkl_file))
         writer_process.start()
 
-
-        # producer threads pool
+        # start producer threads pool
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            with tqdm(total=total_tasks, desc="Batch processing") as pbar:
+            with tqdm(total=task_count, desc="Batch processing") as pbar:
                 futures = {
-                    executor.submit(cls.process_pdb_file, pdb_file, queue, processed_files, log_file): pdb_file
-                    for pdb_file in pdb_files if pdb_file not in processed_files
+                    executor.submit(cls.process_pdb_file, pdb_file, queue): pdb_file
+                    for pdb_file in tasks
                 }
                 for future in concurrent.futures.as_completed(futures):
                     pdb_file = futures[future]
-
                     try:
                         future.result()
                     except Exception as e:
-                        raise
-                        logger.error(e)
+                        logger.error(str(pdb_file)+': '+str(e))
                     pbar.update(1)  # update tqdm bar
+
         executor.shutdown(wait=True)
-        logger.info("All producer threads have been closed safely.")
+        logger.info("Producer threads closed safely.")
 
         # send end signal to consumer
         queue.put(None)
         writer_process.join()  # wait consumer thread to finish
-
         logger.info("Consumer thread closed safely.")
 
+        logger.info(f"All threads closed and {len(pdb_files)} results saved to {output_pkl_file}")
 
+        # print the saved results in pkl file.
+        # load_existing_results = Analyzer.load_existing_results(output_pkl_file)
+        # json_output = json.dumps(load_existing_results, indent=1)
+        # print(json_output)
 
 
 if __name__ == '__main__':
     pdb_dir = r"/Users/douzhixin/Developer/qPacking/code/data/raw"
     output_pkl_file = r"/Users/douzhixin/Developer/qPacking/code/data/results.pkl"
-    log_file = r"/Users/douzhixin/Developer/qPacking/code/data/processed.log"
-    Analyzer.batch_process_pdb_directory(pdb_dir, output_pkl_file, log_file)
+    Analyzer.batch_process_pdb_files(pdb_dir, output_pkl_file)
 

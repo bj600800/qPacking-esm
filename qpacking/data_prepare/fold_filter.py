@@ -39,14 +39,14 @@ from qpacking.utils import logger
 logger = logger.setup_log(name=__name__)
 
 #### ARGUMENTS PARSER ####
-parser = argparse.ArgumentParser(description='get pdbs')
+parser = argparse.ArgumentParser(description='Filter complete TIM barrel')
 parser.add_argument('--dir', required=True, help='working dir')
 parser.add_argument('--src', required=True, help='source dir')
 args = parser.parse_args()
 
 #### END OF ARGUMENTS PARSER ####
 
-def get_dssp_dat(input_file_path: object, dssp_bin: object) -> object:
+def get_dssp_dat(input_file_path: str, dssp_bin: str) -> object:
     # REFERENCE: https://pdb-redo.eu/dssp/about
 
     ss_dict = {
@@ -101,7 +101,6 @@ def get_dssp_dat(input_file_path: object, dssp_bin: object) -> object:
 
     if stderr:
         logger.error(f"Error for {input_file_path}: {stderr}")
-
 
 def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_turn_aa=1):
     """
@@ -188,7 +187,6 @@ def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_tur
         ss_dict['turn'][f'turn_{turn_counter}'] = current_turn
     return ss_dict
 
-
 def run(dssp_bin="mkdssp"):
     working_dir = args.dir
     source_dir = args.src
@@ -211,15 +209,13 @@ def run(dssp_bin="mkdssp"):
 
     for structure_path in tqdm(pdb_files, desc='Filtering complete TIM barrel'):
         file_name = structure_path.stem
-        if file_name == 'AF-A0A009ER02-F1-model_v4_TED01':
-            # skip processed files
-            if file_name in processed_files:
-                print(f"skip logged file: {file_name}.pdb")
-                continue
-
+        if file_name in processed_files:
+            logger.info(f"skip logged file: {file_name}.pdb")
+            continue
+        else:
             dssp_dat = get_dssp_dat(structure_path, dssp_bin=dssp_bin)
             ss_dict = get_ss_dict(dssp_dat)
-            fold_bool = filter.run(ss_dict, file_name)
+            fold_bool = filter.run(ss_dict)
 
             if fold_bool:
                 target_path = os.path.join(true_dir, file_name + '.pdb')
@@ -232,7 +228,4 @@ def run(dssp_bin="mkdssp"):
             with open(log_file, "a") as f:
                 f.write(file_name + "\n")
 
-
-if __name__ == '__main__':
-    struct_dir = r"/Users/douzhixin/developer/qpacking/data/test"
-    run()
+run()
