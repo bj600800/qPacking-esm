@@ -22,6 +22,9 @@ from pathlib import Path
 import networkx as nx
 import numpy as np
 
+from Bio.PDB import PDBParser
+from Bio.PDB.DSSP import DSSP
+
 from biotite.structure.info import vdw_radius_single
 from qpacking.hydrocluster import cluster_identifier
 from qpacking.utils import visualization
@@ -30,11 +33,11 @@ logger = setup_log(name=__name__, enable_file_log=False)
 
 
 class Analyzer:
-    def __init__(self, cluster_graphs, structure, pdb_file):
+    def __init__(self, cluster_graphs, structure, pdb_file, dssp):
         self.pdb_file = pdb_file
         self.cluster_graphs = cluster_graphs
         self.structure = structure
-
+        self.dssp = dssp
     @staticmethod
     def resi_area():
         r_vdw = vdw_radius_single("C")
@@ -59,22 +62,54 @@ class Analyzer:
             degree_feature[str(node)] = degree
         return degree_feature
 
+    def get_rasa(self, packing_res):
+        """
+        Calculate the relative solvent accessibility (RSA) for a list of residues using biopython-dssp-rasa.
+        :param resi_list: List of residue indices
+        :return: {res_i: rsa} dictionary
+        """
+        p = PDBParser()
+        structure = p.get_structure("protein", self.pdb_file)
+        model = structure[0]
+        dssp = DSSP(model, self.pdb_file, dssp='mkdssp')
+
+        # create dssp rasa dict
+        dssp_rasa_dict = {
+            key[1][1]: dssp[key][3]
+            for key in dssp.keys()
+        }
+
+        # get rasa
+        rasa_dict = {
+            res: dssp_rasa_dict.get(res, None)
+            for res in packing_res
+        }
+
+        return rasa_dict
+
     def run(self):
-        raw_struct_features = {'area': {}, 'degree': {}}
+        packing_res = []
+        struct_features = {'area': {}, 'degree': {}, 'rsa': {}}
         res_area_dict = self.resi_area()
-        visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        # visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+
         for G in self.cluster_graphs:
             area_feature = self.get_area(G, res_area_dict)
-            raw_struct_features['area'].update(area_feature)
-
             degree_feature = self.get_degree(G)
-            raw_struct_features['degree'].update(degree_feature)
+            packing_res.extend(list(G.nodes()))
+
+            struct_features['area'].update(area_feature)
+            struct_features['degree'].update(degree_feature)
+
+        rsa_dict = self.get_rasa(packing_res)
+        struct_features['rsa'] = rsa_dict
+
+
 
         # clean cache
         self.cluster_graphs = None
         self.structure = None
-        input()
-        return raw_struct_features
+        return struct_features
 
     @staticmethod
     def load_existing_results(output_file):
@@ -109,8 +144,8 @@ class Analyzer:
         # Load existing results before updating
         results = Analyzer.load_existing_results(output_file)  # persistence variable
 
-        buffer = []
 
+        buffer = []
         while True:
             result = queue.get()
             if result is None:
@@ -129,22 +164,22 @@ class Analyzer:
             results.update({k: v for d in buffer for k, v in d.items()})
             with open(output_file, "wb") as f:
                 pickle.dump(results, f)
+        feat_num = len(list(results.values())[0].keys())
 
-        logger.info(f"Total pdb files collected: {len(results)}")
+        logger.info(f"Total types of structure feature collected: {feat_num}")
 
     @classmethod
-    def process_pdb_file(cls, pdb_file, queue):
+    def process_pdb_file(cls, pdb_file, queue, dssp):
         cluster_graphs, structure = cluster_identifier.run(pdb_file)
-        analyzer = cls(cluster_graphs, structure, pdb_file)
+        analyzer = cls(cluster_graphs, structure, pdb_file, dssp)
         result = analyzer.run()
-
         # FIFO parallel processing: put result into queue
         pdb_name = pdb_file.stem
-        queue.put({pdb_name: result})  # 结果入队列
 
+        queue.put({pdb_name: result})
 
     @classmethod
-    def batch_process_pdb_files(cls, pdb_directory, output_pkl_file):
+    def batch_process_pdb_files(cls, pdb_directory, output_pkl_file, dssp):
         num_workers = multiprocessing.cpu_count()
 
         #TODO: Remove this debug block before production
@@ -157,7 +192,7 @@ class Analyzer:
         logger.info(f"Starting {num_workers} producer threads and 1 consumer thread.")
 
         pdb_files = list(Path(pdb_directory).glob("*.pdb"))
-
+        logger.info(f"Found {len(pdb_files)} PDB files in {Path(pdb_directory)}")
         if os.path.exists(output_pkl_file):
             existing_results = list(cls.load_existing_results(output_pkl_file).keys())
             logger.info(f"Existing results loaded from {output_pkl_file}: {len(existing_results)}")
@@ -186,7 +221,7 @@ class Analyzer:
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             with tqdm(total=task_count, desc="Batch processing") as pbar:
                 futures = {
-                    executor.submit(cls.process_pdb_file, pdb_file, queue): pdb_file
+                    executor.submit(cls.process_pdb_file, pdb_file, queue, dssp): pdb_file
                     for pdb_file in tasks
                 }
                 for future in concurrent.futures.as_completed(futures):
@@ -205,7 +240,7 @@ class Analyzer:
         writer_process.join()  # wait consumer thread to finish
         logger.info("Consumer thread closed safely.")
 
-        logger.info(f"All threads closed and {len(pdb_files)} results saved to {output_pkl_file}")
+        logger.info(f"All threads closed and {len(pdb_files)} structure features saved to {output_pkl_file}")
 
         # print the saved results in pkl file.
         # load_existing_results = Analyzer.load_existing_results(output_pkl_file)
@@ -216,5 +251,5 @@ class Analyzer:
 if __name__ == '__main__':
     pdb_dir = r"/Users/douzhixin/Developer/qPacking/code/data/raw"
     output_pkl_file = r"/Users/douzhixin/Developer/qPacking/code/data/results.pkl"
-    Analyzer.batch_process_pdb_files(pdb_dir, output_pkl_file)
-
+    dssp = "mkdssp"
+    Analyzer.batch_process_pdb_files(pdb_dir, output_pkl_file, dssp)
