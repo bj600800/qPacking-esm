@@ -102,7 +102,7 @@ def get_dssp_dat(input_file_path: str, dssp_bin: str) -> object:
     if stderr:
         logger.error(f"Error for {input_file_path}: {stderr}")
 
-def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_turn_aa=1):
+def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_turn_aa=1, min_loop_aa=2):
     """
     detect topology.
     :param dssp_dat:
@@ -178,13 +178,17 @@ def get_ss_dict(dssp_dat, min_helix_aa=4, min_sheet_aa=2, min_loop_aa=2, min_tur
 
     # save the remains
     if current_helix:
-        ss_dict['helix'][f'helix_{helix_counter}'] = current_helix
+        if len(current_helix) >= min_helix_aa:
+            ss_dict['helix'][f'helix_{helix_counter}'] = current_helix
     if current_sheet:
-        ss_dict['sheet'][f'sheet_{sheet_counter}'] = current_sheet
+        if len(current_sheet) >= min_sheet_aa:
+            ss_dict['sheet'][f'sheet_{sheet_counter}'] = current_sheet
     # if current_loop:
-    #     ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
+    #     if len(current_loop) >= min_loop_aa:
+    #       ss_dict['loop'][f'loop_{loop_counter}'] = current_loop
     if current_turn:
-        ss_dict['turn'][f'turn_{turn_counter}'] = current_turn
+        if len(current_turn) >= min_turn_aa:
+            ss_dict['turn'][f'turn_{turn_counter}'] = current_turn
     return ss_dict
 
 def run(dssp_bin="mkdssp"):
@@ -198,7 +202,6 @@ def run(dssp_bin="mkdssp"):
     false_dir = os.path.join(working_dir, 'incomplete')
     os.makedirs(false_dir, exist_ok=True)
 
-    # 读取已处理文件列表
     if os.path.exists(log_file):
         with open(log_file, "r") as f:
             processed_files = set(f.read().splitlines())
