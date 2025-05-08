@@ -32,8 +32,8 @@ def detect_hydrophobic_pair(structure, bias=1.1):
     """
     r_vdw = vdw_radius_single("C")
     hydropho_dist = r_vdw * 2 + bias  # hydropho_dist == 4.5
-    hydrophobic_mask = np.isin(structure.res_name, ["ILE", "LEU", "VAL"]) & \
-                       np.isin(structure.atom_name, ["CB", "CG1", "CG2", "CD1", "CD2"])
+    hydrophobic_mask = np.isin(structure.res_name, ["ILE", "LEU", "VAL", "ALA", "MET"]) & \
+                       np.isin(structure.atom_name, ["CB", "CG1", "CG2", "CD1", "CD2", "CG", "CE"])
     
     cell_list = struc.CellList(
         structure,

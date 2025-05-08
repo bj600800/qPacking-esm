@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/3/12
 
-# Description: This script calculates various metrics for hydrophobic clusters from PDB files in batch mode.
+# Description: This script calculates various Hydrophobic Packing Descriptors (HPDs) from PDB files in batch mode.
 # 1. Extract hydrophobic clusters from a PDB file.
 # 2. Calculate different metrics for each cluster at the residue level.
 # 3. Run batch calculations for all PDB files in a directory.
@@ -13,19 +13,21 @@
 """
 import os
 import pickle
-import json
 import concurrent.futures
 import multiprocessing
+import time
+import humanize
 
 from tqdm import tqdm
 from pathlib import Path
 import networkx as nx
 import numpy as np
+from scipy.spatial.distance import cdist
 
 from Bio.PDB import PDBParser
 from Bio.PDB.DSSP import DSSP
 
-from biotite.structure.info import vdw_radius_single
+from biotite.structure import sasa, centroid
 from qpacking.hydrocluster import cluster_identifier
 from qpacking.utils import visualization
 from qpacking.utils.logger import setup_log
@@ -38,20 +40,15 @@ class Analyzer:
         self.cluster_graphs = cluster_graphs
         self.structure = structure
         self.dssp = dssp
-    @staticmethod
-    def resi_area():
-        r_vdw = vdw_radius_single("C")
-        pi = np.pi
-        ile_area = 4 * 4 * pi * r_vdw ** 2
-        leu_area = 4 * 4 * pi * r_vdw ** 2
-        val_area = 3 * 4 * pi * r_vdw ** 2
-        area = {'ILE': round(ile_area,2), 'LEU': round(leu_area,2), 'VAL': round(val_area,2)}
-        return area
 
-    @staticmethod
-    def get_area(G, res_area_dict):
+    def get_area(self, G):
         node_labels = nx.get_node_attributes(G, 'res_name')
-        area_feature = {str(res_id): res_area_dict[res_name] for res_id, res_name in node_labels.items()}
+        area_feature = {}
+        for res_id, res_name in node_labels.items():
+            residue_mask = np.isin(self.structure.res_id, res_id)
+            res_array = self.structure[residue_mask]
+            area_feature[res_id] = sum(sasa(res_array))
+
         return area_feature
 
     @staticmethod
@@ -60,6 +57,8 @@ class Analyzer:
         degree_dict = dict(G.degree())
         for node, degree in degree_dict.items():
             degree_feature[str(node)] = degree
+
+        visualization.draw_graph_interactive(G, "degree_graph.html")
         return degree_feature
 
     def get_rasa(self, packing_res):
@@ -71,7 +70,7 @@ class Analyzer:
         p = PDBParser()
         structure = p.get_structure("protein", self.pdb_file)
         model = structure[0]
-        dssp = DSSP(model, self.pdb_file, dssp='mkdssp')
+        dssp = DSSP(model, self.pdb_file, dssp=self.dssp)
 
         # create dssp rasa dict
         dssp_rasa_dict = {
@@ -87,29 +86,78 @@ class Analyzer:
 
         return rasa_dict
 
+    def get_packing_order(self, G):
+        """
+        packing order (PO) defines the difficulties of each hydrophobic residue in the cluster.
+        The more difficult to pack, the higher the order.
+        cite: https://doi.org/10.1006/jmbi.1998.1645
+        :return: {res_id: PO} dictionary
+        """
+        visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        input()
+        hydro_res = G.nodes()
+        contact = G.edges()
+        N_contact = len(list(contact))
+        l_cluster = len(list(hydro_res))
+        Nl_multiply = N_contact * l_cluster
+
+        order_dict = {}
+        for res in hydro_res:
+            s_pair = 0
+            for pair in contact:
+                if res in pair:
+                    s_pair += abs(int(pair[0]) - int(pair[1]))
+            order_dict[res] = s_pair / Nl_multiply
+        return order_dict
+
+
+    def get_centrality(self, G):
+        centrality_dict = {}
+        res_list = list(G.nodes())
+        coords = []
+        for res_id in res_list:
+            residue_mask = np.isin(self.structure.res_id, res_id) & np.isin(self.structure.atom_name, 'CA')
+            coord = self.structure[residue_mask].coord
+            coords.append(coord[0])
+        D = cdist(np.array(coords), np.array(coords))  # 直接得到 NxN 的距离矩阵
+        distance_sums = np.sum(D, axis=1)
+        N = len(res_list) - 1
+
+        for i in range(len(res_list)):
+            centrality_dict[res_list[i]] = N / distance_sums[i]
+        return centrality_dict
+
+
     def run(self):
         packing_res = []
-        struct_features = {'area': {}, 'degree': {}, 'rsa': {}}
-        res_area_dict = self.resi_area()
-        # visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        struct_features = {'area': {}, 'degree': {}, 'rsa': {}, 'order': {}, 'centrality': {}}
+        try:
+            for G in self.cluster_graphs:
+                area_feature = self.get_area(G)
+                degree_feature = self.get_degree(G)
+                order_feature = self.get_packing_order(G)
+                centrality_feature = self.get_centrality(G)
 
-        for G in self.cluster_graphs:
-            area_feature = self.get_area(G, res_area_dict)
-            degree_feature = self.get_degree(G)
-            packing_res.extend(list(G.nodes()))
+                packing_res.extend(list(G.nodes()))
+                struct_features['area'].update(area_feature)
+                struct_features['degree'].update(degree_feature)
+                struct_features['order'].update(order_feature)
+                struct_features['centrality'].update(centrality_feature)
 
-            struct_features['area'].update(area_feature)
-            struct_features['degree'].update(degree_feature)
+            rsa_dict = self.get_rasa(packing_res)
+            struct_features['rsa'] = rsa_dict
 
-        rsa_dict = self.get_rasa(packing_res)
-        struct_features['rsa'] = rsa_dict
-
-
+        except Exception as e:
+            logger.warning(f"Error in calculating {self.pdb_file}: {e}")
+            return False
 
         # clean cache
         self.cluster_graphs = None
         self.structure = None
-        return struct_features
+        if all(v for v in struct_features.values()):
+            return struct_features
+        else:
+            return False
 
     @staticmethod
     def load_existing_results(output_file):
@@ -132,7 +180,7 @@ class Analyzer:
             return {}
 
     @staticmethod
-    def file_writer(queue, output_file, buffer_size=10000):
+    def file_writer(queue, output_file, buffer_size=10000):  # buffer size too small will not be enough for the last time writing.
         """
         Consumer thread to write all results (new and old) to a file.
         Each buffer write once for each result.
@@ -142,31 +190,53 @@ class Analyzer:
         :return:
         """
         # Load existing results before updating
-        results = Analyzer.load_existing_results(output_file)  # persistence variable
-
+        results = Analyzer.load_existing_results(output_file)
+        if results is None:
+            results = {}
 
         buffer = []
         while True:
             result = queue.get()
             if result is None:
                 break
-            elif isinstance(result, dict):
-                buffer.append(result)
-                if len(buffer) >= buffer_size:
-                    results.update({k: v for d in buffer for k, v in d.items()})
-                    with open(output_file, "wb") as f:
-                        pickle.dump(results, f)
-                    buffer.clear()
-            else:
-                logger.error(f"Received object is not a dictionary: {result}")
+            try:
+                if isinstance(result, dict):
+                    buffer.append(result)
+                    if len(buffer) >= buffer_size:
+                        results.update({k: v for d in buffer for k, v in d.items()})
+                        logger.info("Writing buffer to file...")
+                        with open(output_file, "wb") as f:
+                            pickle.dump(results, f)
+                        buffer.clear()
+                        logger.info("Writing complete.")
+                else:
+                    logger.error(f"Received object is not a dictionary: {result}")
+            except Exception as e:
+                logger.error(f"Error processing {result}: {e}")
+                continue
+        try:
+            if buffer:
+                results.update({k: v for d in buffer for k, v in d.items()})
 
-        if buffer:
-            results.update({k: v for d in buffer for k, v in d.items()})
-            with open(output_file, "wb") as f:
-                pickle.dump(results, f)
-        feat_num = len(list(results.values())[0].keys())
+                logger.info("Writing the remaining buffer to file...")
+                with open(output_file, "wb") as f:
+                    pickle.dump(results, f)
+                logger.info("Writing complete.")
 
-        logger.info(f"Total types of structure feature collected: {feat_num}")
+        except Exception as e:
+            logger.error(f"Error during final buffer write: {e}")
+
+        # Final report
+        if results:
+            try:
+                feature_types = list(list(results.values())[0].keys())
+                feature_num = len(feature_types)
+                logger.info(
+                    f"A total of {feature_num} types of structural features were collected: {', '.join(feature_types)}")
+            except Exception as e:
+                logger.warning(f"Final summary error: {e}")
+        else:
+            logger.warning("No valid structural features were collected.")
 
     @classmethod
     def process_pdb_file(cls, pdb_file, queue, dssp):
@@ -176,10 +246,13 @@ class Analyzer:
         # FIFO parallel processing: put result into queue
         pdb_name = pdb_file.stem
 
-        queue.put({pdb_name: result})
+        if result:
+            # 不能什么都往里面放，判断必须为正常数据
+            queue.put({pdb_name: result})
 
     @classmethod
     def batch_process_pdb_files(cls, pdb_directory, output_pkl_file, dssp):
+        time1 = time.time()
         num_workers = multiprocessing.cpu_count()
 
         #TODO: Remove this debug block before production
@@ -204,9 +277,7 @@ class Analyzer:
 
         if task_count == 0:
             logger.info("All files have been processed.")
-            # load_existing_results = Analyzer.load_existing_results(output_pkl_file)
-            # json_output = json.dumps(load_existing_results, indent=1)
-            # print(json_output)
+
             return
         else:
             logger.info(f"Task number: {task_count}")
@@ -238,18 +309,22 @@ class Analyzer:
         # send end signal to consumer
         queue.put(None)
         writer_process.join()  # wait consumer thread to finish
+
+        time2 = time.time()
+        time_cost = time2 - time1
+        time_str = humanize.naturaldelta(time_cost)
+
         logger.info("Consumer thread closed safely.")
-
         logger.info(f"All threads closed and {len(pdb_files)} structure features saved to {output_pkl_file}")
+        logger.info(f"Time cost: {time_str}")
 
-        # print the saved results in pkl file.
+        ## TEST: print the saved results in pkl file.
         # load_existing_results = Analyzer.load_existing_results(output_pkl_file)
-        # json_output = json.dumps(load_existing_results, indent=1)
-        # print(json_output)
+        # print(load_existing_results)
 
 
 if __name__ == '__main__':
-    pdb_dir = r"/Users/douzhixin/Developer/qPacking/code/data/raw"
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/code/data/results.pkl"
+    pdb_dir = r"/Users/douzhixin/Developer/qPacking/data/structure"
+    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/results.pkl"
     dssp = "mkdssp"
     Analyzer.batch_process_pdb_files(pdb_dir, output_pkl_file, dssp)
