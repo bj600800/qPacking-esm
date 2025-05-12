@@ -8,6 +8,10 @@
 # ------------------------------------------------------------------------------
 """
 import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import norm
 
 def load_existing_results(output_file):
     """
@@ -28,10 +32,90 @@ def load_existing_results(output_file):
         print(e)
         return {}
 
+def plot_area(data, title):
+    # 转成 numpy 数组
+    data = np.array(data)
+
+    # 计算均值和标准差
+    mu, sigma = np.mean(data), np.std(data)
+
+    # 创建绘图
+    plt.figure(figsize=(10, 6))
+
+    # 绘制直方图
+    sns.histplot(data, bins=10, stat="density", color='skyblue', edgecolor='black')
+
+    # 单独绘制 KDE 曲线
+    sns.kdeplot(data, color='steelblue', linewidth=2, label="KDE")
+    # 高斯分布拟合曲线
+    x = np.linspace(data.min(), data.max(), 1000)
+    # x = np.linspace(data.min()-1000, data.max()+1000, 1000)
+    y = norm.pdf(x, mu, sigma)
+    plt.plot(x, y, 'r--', label=f'Gaussian Fit\nμ={mu:.2f}, σ={sigma:.2f}')
+
+    # 标注与美化
+    plt.title(f"Distribution of {title}")
+    plt.xlabel("Value", fontsize=14)
+    plt.ylabel("Density", fontsize=14)
+
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def plot_degree(data, title):
+    # 计算均值和标准差
+    mu, sigma = np.mean(data), np.std(data)
+
+    # 绘制直方图（归一化密度）
+    count, bins, ignored = plt.hist(data, bins=range(min(data), max(data) + 2), density=True, alpha=0.6,
+                                    color='skyblue', edgecolor='black')
+
+    # 拟合的高斯分布曲线
+    x = np.linspace(min(data) - 1, max(data) + 1, 1000)
+    y = norm.pdf(x, mu, sigma)
+
+    # 绘图
+    plt.plot(x, y, 'r--', label=f'Gaussian Fit\nμ={mu:.2f}, σ={sigma:.2f}')
+    plt.title(f"Distribution of {title}")
+    plt.xlabel('Value', fontsize=14)
+    plt.ylabel('Density', fontsize=14)
+    plt.legend()
+    plt.show()
+
+def plot_rsa(data, title):
+    # 创建绘图
+    plt.figure(figsize=(10, 6))
+
+    # 绘制直方图并获取 bin 信息
+    counts, bin_edges, _ = plt.hist(data, bins=10, density=True,
+                                    color='skyblue', edgecolor='black', alpha=0.6)
+
+    # 标注与美化
+    plt.title(f"Distribution of {title}")
+    plt.xlabel("Value", fontsize=14)
+    plt.ylabel("Density", fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
 if __name__ == '__main__':
     output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/70_results.pkl"
     load_existing_results = load_existing_results(output_pkl_file)
-    print(len(load_existing_results))
-    # print(load_existing_results)
-    for k, v in list(load_existing_results.items())[:2]:
-        print(k, v)
+    print(len([p for k, v in load_existing_results.items() for i in v.values() for t, p in i.items()]))
+
+    # dict_keys(['area', 'degree', 'rsa', 'order', 'centrality'])
+    # area = [sum(v['area'].values()) for k, v in load_existing_results.items()]
+    # plot_area(area, 'SASA Area')
+
+    # degree = [i for k, v in load_existing_results.items() for i in v['degree'].values()]
+    # plot_degree(degree, 'Packing Degree')
+    # print(degree)
+
+    # rsa = [i for k, v in load_existing_results.items() for i in v['rsa'].values()]
+    # plot_rsa(rsa, 'rSAS')
+
+    # order = [sum(v['order'].values()) for k, v in load_existing_results.items()]
+    # plot_rsa(order, 'Packing order')
+    #
+    # centrality = [i for k, v in load_existing_results.items() for i in v['centrality'].values()]
+    # plot_area(centrality, 'centrality')
+
