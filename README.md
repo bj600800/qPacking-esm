@@ -30,3 +30,7 @@ conda install libboost==1.73.0
   - models: Contains the codes for ESM fine-tuning.
   - scripts: zero-shot prediction, train, test, and evaluation.
   - utils: Utility codes for reuse.
+
+## Notice
+- Checkpoint files are available in the zenodo.
+- Fine-tuning data are available in the zenodo.
