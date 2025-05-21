@@ -3,9 +3,9 @@ Exploring hydrophobic stacking patterns in protein folding superfamilies from TE
 
 **Dependence:**
 ```
-python=3.19
+python=3.10
 pip install tqdm
-pip install esm
+pip install fair-esm
 pip install melodia-py (version=0.1.4)
 ```
 
@@ -20,7 +20,6 @@ conda install libboost==1.73.0
 ```
 
 **Directory function:**
-- checkpoints: Contains the checkpoints for the model.
 - data: Contains the data files.
 - experiments: different experimental configurations for experiment management and reproducibility.
 - logs: Contains the logs for the experiments.
@@ -28,6 +27,6 @@ conda install libboost==1.73.0
   - data_prepare: Contains the codes for data preparation.
   - dataset: Contains the codes for dataset preparation.
   - hydrocluster: hydrophobic cluster calculation
-  - models: Contains the codes for the models.
-  - scripts: train, test, and evaluation scripts.
-  - utils: Contains the utility codes for reuse.
+  - models: Contains the codes for ESM fine-tuning.
+  - scripts: zero-shot prediction, train, test, and evaluation.
+  - utils: Utility codes for reuse.

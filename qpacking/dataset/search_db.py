@@ -3,7 +3,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2024/11/18
 #
-# Description: Searching ted sql database based on the required conditions.
+# Description: Searching ted sql dataset based on the required conditions.
 # ------------------------------------------------------------------------------
 import sqlite3
 import argparse
