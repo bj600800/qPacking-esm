@@ -4,19 +4,18 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
+import sys
 import pathlib
 import string
+from pathlib import Path
 
 import torch
-
 from esm import Alphabet, FastaBatchedDataset, ProteinBertModel, pretrained, MSATransformer
 import pandas as pd
 from tqdm import tqdm
 from Bio import SeqIO
 import itertools
 from typing import List, Tuple
-import numpy as np
-
 
 def remove_insertions(sequence: str) -> str:
     """ Removes any insertions into the sequence. Needed to load aligned sequences in an MSA. """
@@ -147,15 +146,21 @@ def compute_pppl(row, sequence, model, alphabet, offset_idx):
 def main(args):
     # Load the deep mutational scan
     df = pd.read_csv(args.dms_input)
+    device = torch.device("mps" if torch.cuda.is_available() else "cpu")
 
     # inference for each model
     for model_location in args.model_location:
-        model, alphabet = pretrained.load_model_and_alphabet(model_location)
+        model_location = Path(model_location)
+        model_data = torch.load(str(model_location), map_location="cpu")
+        model_name = model_location.stem
+        model, alphabet = pretrained.load_model_and_alphabet_core(model_name, model_data)
         model.eval()
         if torch.cuda.is_available() and not args.nogpu:
             model = model.cuda()
             print("Transferred model to GPU")
-
+        elif torch.mps.is_available():
+            model = model.to(device)
+            print("Transferred model to MPS")
         batch_converter = alphabet.get_batch_converter()
 
         if isinstance(model, MSATransformer):
@@ -169,10 +174,10 @@ def main(args):
             all_token_probs = []
             for i in tqdm(range(batch_tokens.size(2))):
                 batch_tokens_masked = batch_tokens.clone()
-                batch_tokens_masked[0, 0, i] = alphabet.mask_idx  # mask out first sequence
+                batch_tokens_masked[0, 0, i] = alphabet.mask_idx  # mask out the first sequence
                 with torch.no_grad():
                     token_probs = torch.log_softmax(
-                        model(batch_tokens_masked.cuda())["logits"], dim=-1
+                        model(batch_tokens_masked.to(device)())["logits"], dim=-1
                     )
                 all_token_probs.append(token_probs[:, 0, i])  # vocab size
             token_probs = torch.cat(all_token_probs, dim=0).unsqueeze(0)
@@ -191,7 +196,7 @@ def main(args):
 
             if args.scoring_strategy == "wt-marginals":
                 with torch.no_grad():
-                    token_probs = torch.log_softmax(model(batch_tokens.cuda())["logits"], dim=-1)
+                    token_probs = torch.log_softmax(model(batch_tokens.to(device))["logits"], dim=-1)
                 df[model_location] = df.apply(
                     lambda row: label_row(
                         row[args.mutation_col],
@@ -209,7 +214,7 @@ def main(args):
                     batch_tokens_masked[0, i] = alphabet.mask_idx
                     with torch.no_grad():
                         token_probs = torch.log_softmax(
-                            model(batch_tokens_masked.cuda())["logits"], dim=-1
+                            model(batch_tokens_masked.to(device))["logits"], dim=-1
                         )
                     all_token_probs.append(token_probs[:, i])  # vocab size
                 token_probs = torch.cat(all_token_probs, dim=0).unsqueeze(0)
@@ -231,11 +236,14 @@ def main(args):
                     ),
                     axis=1,
                 )
-
+    print("write to xlsx.")
     df.to_csv(args.dms_output)
 
 
 if __name__ == "__main__":
     parser = create_parser()
     args = parser.parse_args()
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     main(args)
