@@ -153,6 +153,8 @@ def main(args):
         model_location = Path(model_location)
         model_data = torch.load(str(model_location), map_location="cpu")
         model_name = model_location.stem
+        print(model_name)
+        input()
         model, alphabet = pretrained.load_model_and_alphabet_core(model_name, model_data)
         model.eval()
         if torch.cuda.is_available() and not args.nogpu:
