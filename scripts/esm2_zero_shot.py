@@ -11,7 +11,6 @@ from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM
-from official_esm2_zero_shot import compute_pppl
 
 
 def load_model_and_tokenizer(model_path, device):
@@ -28,6 +27,7 @@ def get_token_probs_wt_marginals(model, inputs):
     with torch.no_grad():
         logits = model(**inputs).logits
         token_probs = torch.log_softmax(logits, dim=-1)
+
     return token_probs
 
 
@@ -38,10 +38,40 @@ def get_token_probs_masked_marginals(model, tokenizer, input_ids):
         masked_inputs[0, i] = tokenizer.mask_token_id
         with torch.no_grad():
             logits = model(input_ids=masked_inputs).logits
+
             probs = torch.log_softmax(logits, dim=-1)
         all_token_probs.append(probs[:, i])
     token_probs = torch.cat(all_token_probs, dim=0).unsqueeze(0)
     return token_probs
+
+
+def compute_pppl(row, sequence, model, alphabet, offset_idx):
+    wt, idx, mt = row[0], int(row[1:-1]) - offset_idx, row[-1]
+    assert sequence[idx] == wt, "The listed wildtype does not match the provided sequence"
+
+    # modify the sequence
+    sequence = sequence[:idx] + mt + sequence[(idx + 1) :]
+
+    # encode the sequence
+    data = [
+        ("protein1", sequence),
+    ]
+
+    batch_converter = alphabet.get_batch_converter()
+
+    batch_labels, batch_strs, batch_tokens = batch_converter(data)
+
+    wt_encoded, mt_encoded = alphabet.get_idx(wt), alphabet.get_idx(mt)
+
+    # compute probabilities at each position
+    log_probs = []
+    for i in range(1, len(sequence) - 1):
+        batch_tokens_masked = batch_tokens.clone()
+        batch_tokens_masked[0, i] = alphabet.mask_idx
+        with torch.no_grad():
+            token_probs = torch.log_softmax(model(batch_tokens_masked.cuda())["logits"], dim=-1)
+        log_probs.append(token_probs[0, i, alphabet.get_idx(sequence[i])].item())  # vocab size
+    return sum(log_probs)
 
 
 def label_mutation_score(mutation, sequence, token_probs, tokenizer, offset_idx):
@@ -71,7 +101,6 @@ def score_with_pseudo_ppl(df, sequence, model, tokenizer, offset_idx, mutation_c
 def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, scoring_strategy, dms_output):
     df = pd.read_csv(dms_input)
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-
     tokenizer, model = load_model_and_tokenizer(model_path, device)
     inputs = tokenizer(sequence, return_tensors="pt").to(device)
     input_ids = inputs["input_ids"]

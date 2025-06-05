@@ -2,8 +2,8 @@
 # ------------------------------------------------------------------------------
 # Author:    Dou Zhixin
 # Email:     bj600800@gmail.com
-# DATE:      2025/2/14
+# DATE:      2025/6/5
 
-# Description: static configurations for structural feature calculation, model training, and evaluation.
+# Description: 
 # ------------------------------------------------------------------------------
 """
