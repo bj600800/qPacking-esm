@@ -38,18 +38,5 @@ conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
 
-**Directory function:**
-- data: Contains the data files.
-- experiments: different experimental configurations for experiment management and reproducibility.
-- logs: Contains the logs for the experiments.
-- qpacking: Contains the main codes for the project.
-  - data_prepare: Contains the codes for data preparation.
-  - dataset: Contains the codes for dataset preparation.
-  - hydrocluster: hydrophobic cluster calculation
-  - models: Contains the codes for ESM fine-tuning.
-  - scripts: zero-shot prediction, train, test, and evaluation.
-  - utils: Utility codes for reuse.
-
 ## Notice
-- Checkpoint files are available in the zenodo.
-- Fine-tuning data are available in the zenodo.
+- Checkpoints and used-datasets are available in the zenodo.
