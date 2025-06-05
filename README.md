@@ -1,17 +1,19 @@
 # qPacking
 Investigation of hydrophobic stacking patterns in protein folding superfamilies based on the TED database, leveraging the ESM2-650M language model.
 **Content**
-├── experiments/              # Stores experiment configuration files (e.g., YAML)
-├── logs/                     # Log output directory (e.g., train.log, test.log)
-├── predict.py                # Inference script entry point
-├── scripts/                  # Execution scripts: training, testing, zero-shot inference
-├── README.md                 # Project documentation
-└── qpacking/                 # Main project code package
-  ├── config.py               # Configuration loading and parsing
-  ├── data_prepare/           # Data preprocessing utilities
-  ├── hydrocluster/           # Hydrophobic cluster identification and analysis
-  ├── models/                 # Core deep learning modules: model, dataset, training loop, evaluation metrics
-  └── utils/                  # Utility functions: logging, visualization, etc.
+```
+├── experiments/         # Experiment configuration files (e.g., YAML)
+├── logs/                # Log output directory (e.g., train.log, test.log)
+├── predict.py           # Inference script entry point
+├── scripts/             # Execution scripts: training, testing, zero-shot inference
+├── README.md            # Project documentation
+└── qpacking/            # Main project code package
+    ├── config.py            # Configuration loading and parsing
+    ├── data_prepare/        # Data preprocessing utilities
+    ├── hydrocluster/        # Hydrophobic cluster identification and analysis
+    ├── models/              # Core DL modules: model, dataset, training, evaluation
+    └── utils/               # Utility functions: logging, visualization, etc.
+```
 
 **Dependence:**
 ```
