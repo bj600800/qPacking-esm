@@ -39,7 +39,17 @@ class Analyzer:
         self.pdb_file = pdb_file
         self.cluster_graphs = cluster_graphs
         self.structure = structure
+        self.first_res_id = structure.res_id[0]
         self.dssp = dssp
+
+    def get_class(self, G, i):
+        node_labels = nx.get_node_attributes(G, 'res_name')
+        class_feature = {}
+        for res_id, _ in node_labels.items():
+            res_id = int(res_id) - int(self.first_res_id)
+            class_feature[res_id] = i + 1  # cluster index starts from 1, 0 stands for non-cluster residues
+
+        return class_feature
 
     def get_area(self, G):
         node_labels = nx.get_node_attributes(G, 'res_name')
@@ -47,18 +57,19 @@ class Analyzer:
         for res_id, res_name in node_labels.items():
             residue_mask = np.isin(self.structure.res_id, res_id)
             res_array = self.structure[residue_mask]
+            res_id = int(res_id) - int(self.first_res_id)
             area_feature[res_id] = sum(sasa(res_array))
 
         return area_feature
 
-    @staticmethod
-    def get_degree(G):
+    def get_degree(self, G):
         degree_feature = {}
         degree_dict = dict(G.degree())
         for node, degree in degree_dict.items():
-            degree_feature[str(node)] = degree
+            node = int(node) - int(self.first_res_id)
+            degree_feature[node] = degree
 
-        visualization.draw_graph_interactive(G, "degree_graph.html")
+        # visualization.draw_graph_interactive(G, "degree_graph.html")
         return degree_feature
 
     def get_rasa(self, packing_res):
@@ -80,7 +91,7 @@ class Analyzer:
 
         # get rasa
         rasa_dict = {
-            res: dssp_rasa_dict.get(res, None)
+            int(res) - int(self.first_res_id): dssp_rasa_dict.get(res, None)
             for res in packing_res
         }
 
@@ -93,8 +104,8 @@ class Analyzer:
         cite: https://doi.org/10.1006/jmbi.1998.1645
         :return: {res_id: PO} dictionary
         """
-        visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
-        input()
+        # visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        # input()
         hydro_res = G.nodes()
         contact = G.edges()
         N_contact = len(list(contact))
@@ -107,6 +118,7 @@ class Analyzer:
             for pair in contact:
                 if res in pair:
                     s_pair += abs(int(pair[0]) - int(pair[1]))
+            res = int(res) - int(self.first_res_id)
             order_dict[res] = s_pair / Nl_multiply
         return order_dict
 
@@ -124,26 +136,34 @@ class Analyzer:
         N = len(res_list) - 1
 
         for i in range(len(res_list)):
+            res_list[i] = int(res_list[i]) - int(self.first_res_id)
             centrality_dict[res_list[i]] = N / distance_sums[i]
         return centrality_dict
 
 
     def run(self):
         packing_res = []
-        struct_features = {'area': {}, 'degree': {}, 'rsa': {}, 'order': {}, 'centrality': {}}
+        struct_features = {'class':{'feature': {}, 'count': 0},
+                           'area': {},
+                           'degree': {},
+                           'rsa': {},
+                           'order': {},
+                           'centrality': {}}
         try:
-            for G in self.cluster_graphs:
+            for i, G in enumerate(self.cluster_graphs):
+                class_feature = self.get_class(G, i)
                 area_feature = self.get_area(G)
                 degree_feature = self.get_degree(G)
                 order_feature = self.get_packing_order(G)
                 centrality_feature = self.get_centrality(G)
 
                 packing_res.extend(list(G.nodes()))
+                struct_features['class']['feature'].update(class_feature)
                 struct_features['area'].update(area_feature)
                 struct_features['degree'].update(degree_feature)
                 struct_features['order'].update(order_feature)
                 struct_features['centrality'].update(centrality_feature)
-
+            struct_features['class']["count"] = len(self.cluster_graphs)
             rsa_dict = self.get_rasa(packing_res)
             struct_features['rsa'] = rsa_dict
 
@@ -183,7 +203,7 @@ class Analyzer:
     def file_writer(queue, output_file, buffer_size=10000):  # buffer size too small will not be enough for the last time writing.
         """
         Consumer thread to write all results (new and old) to a file.
-        Each buffer write once for each result.
+        Each buffer was written once for each result.
         :param queue:
         :param output_file: pkl
         :param buffer_size:
@@ -258,8 +278,8 @@ class Analyzer:
         #TODO: Remove this debug block before production
         if os.path.exists(output_pkl_file):
             os.remove(output_pkl_file)
-        num_workers = 1
-        logger.info("workers 1 for debug.")
+        num_workers = 2
+        # logger.info("workers 1 for debug.")
         #TODO: Remove this debug block before production
 
         logger.info(f"Starting {num_workers} producer threads and 1 consumer thread.")

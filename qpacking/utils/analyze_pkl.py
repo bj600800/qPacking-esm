@@ -23,7 +23,6 @@ def load_existing_results(output_file):
         with open(output_file, "rb") as f:
             results_dict = pickle.load(f)  # output file only 1 obj.
             if not isinstance(results_dict, dict):
-
                 return {}
             return results_dict
     except (FileNotFoundError, EOFError):
@@ -98,10 +97,13 @@ def plot_rsa(data, title):
     plt.show()
 
 if __name__ == '__main__':
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/70_results.pkl"
+    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/results.pkl"
     load_existing_results = load_existing_results(output_pkl_file)
-    print(len([p for k, v in load_existing_results.items() for i in v.values() for t, p in i.items()]))
+    for k, v in load_existing_results.items():
+        for feature, value in v.items():
+            print(f"{k} - {feature}: {value}")
 
+        input()
     # dict_keys(['area', 'degree', 'rsa', 'order', 'centrality'])
     # area = [sum(v['area'].values()) for k, v in load_existing_results.items()]
     # plot_area(area, 'SASA Area')
