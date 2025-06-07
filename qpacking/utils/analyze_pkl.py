@@ -97,13 +97,15 @@ def plot_rsa(data, title):
     plt.show()
 
 if __name__ == '__main__':
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/results.pkl"
-    load_existing_results = load_existing_results(output_pkl_file)
+    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/80_class_results_renum.pkl"
+    existing_results = load_existing_results(output_pkl_file)
+    print(existing_results)
+    input()
     for k, v in load_existing_results.items():
         for feature, value in v.items():
             print(f"{k} - {feature}: {value}")
 
-        input()
+
     # dict_keys(['area', 'degree', 'rsa', 'order', 'centrality'])
     # area = [sum(v['area'].values()) for k, v in load_existing_results.items()]
     # plot_area(area, 'SASA Area')
