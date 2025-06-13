@@ -7,10 +7,8 @@
 # Description: Continual learning model for token-wise tasks.
 # ------------------------------------------------------------------------------
 """
-from transformers import (
-    EsmTokenizer,
-    EsmModel,
-    EsmConfig)
+import torch
+from transformers import EsmModel
 from peft import PeftModel, PeftConfig, get_peft_model, LoraConfig
 import torch.nn as nn
 
@@ -32,7 +30,7 @@ def print_trainable_parameters(model):
     )
 
 
-def load_model(model_dir):
+def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
     """
     load the ESM backbone model with lora
     Args:
@@ -49,53 +47,66 @@ def load_model(model_dir):
     model.enable_input_require_grads()  # allow lora update
 
     config = LoraConfig(
-        r=8,  # attention heads
-        lora_alpha=8,  # alpha scaling
+        r=lora_rank,  # attention rank 8
+        lora_alpha=lora_alpha,  # alpha scaling 8
         target_modules=[
             "query",
             "key",
             "value",
             "dense"],  # keyword match
         inference_mode=False,
-        lora_dropout=0.05,
+        lora_dropout=lora_dropout, # 0.05
         bias="none"
     )
 
     model = get_peft_model(model, config)
 
-    print_trainable_parameters(model)
+    # print_trainable_parameters(model)
 
     return model
 
 
 class TokenClassificationModel(nn.Module):
-    def __init__(self, model_dir, num_clusters):
+    def __init__(self, model_dir, num_clusters, lora_rank, lora_alpha, lora_dropout):
         super().__init__()
-        self.model = load_model(model_dir)
-        print(self.model.config.hidden_size)
+        self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
         self.dropout = nn.Dropout(0.1)
         self.classifier = nn.Linear(self.model.config.hidden_size, num_clusters)  # nn.Linear(input, output)
+        self.loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
 
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids, attention_mask, labels=None):
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = self.dropout(outputs.last_hidden_state)  # [batch, seq_len, hidden=1280]
-        class_logits = self.classifier(hidden_states)  # [batch, seq_len, num_clusters] 1280 -> num_clusters
-        return class_logits
+        logits = self.classifier(hidden_states)  # [batch, seq_len, num_clusters] 1280 -> num_clusters
+        if labels is not None:
+            # 把 logits 和 labels reshape 成 [batch * seq_len, num_classes] 和 [batch * seq_len]
+            loss = self.loss_fn(
+                logits.view(-1, logits.shape[-1]),
+                labels.view(-1)
+            )
+            return {"loss": loss, "logits": logits}
+        else:
+            return {"logits": logits}
 
 
 if __name__ == '__main__':
-    import torch
-    model_dir = r"/Users/douzhixin/Developer/qPacking/checkpoints/esm2_t33_650M_UR50D"
+    from transformers import EsmTokenizer
+    model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t33_650M_UR50D"
+
+    # config params
     num_clusters = 5
+    lora_rank = 8
+    lora_alpha = 8
+    lora_dropout = 0.05
 
     # 加载模型
-    model = TokenClassificationModel(model_dir, num_clusters)
+    model = TokenClassificationModel(model_dir, num_clusters, lora_rank, lora_alpha, lora_dropout)
     model.eval()
 
     # 加载 tokenizer（对应 ESM 模型）
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
     # 真实氨基酸序列（可改为你自己的）
-    sequence = "MTEITAAMVKELRESTGAGMMDCKNALSETQHEWAYG"
+    sequence = ["MTEITAAMVKELRESTGAGMMDCKNALSETQHEWAYG", "MTEITAAMVKELRESTGAGMMDCKNALSETQHEWAYG"]
 
     # 使用 tokenizer 编码
     encoded = tokenizer(sequence, return_tensors="pt", padding=True, truncation=True, max_length=512)
@@ -103,14 +114,11 @@ if __name__ == '__main__':
     # 获取 input_ids 和 attention_mask
     input_ids = encoded["input_ids"]
     attention_mask = encoded["attention_mask"]  # shape: [1, seq_len]
-    print(attention_mask)
 
     # 推理
     with torch.no_grad():
         logits = model(input_ids=input_ids, attention_mask=attention_mask)
-
-    print("Input shape:", input_ids.shape)
-    print("Output logits shape:", logits.shape)  # [1, seq_len, num_clusters]
+    print(logits)  # 输出形状: [1, seq_len, num_clusters]
 
 
 

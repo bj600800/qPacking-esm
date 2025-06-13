@@ -9,6 +9,7 @@
 """
 import pickle
 import numpy as np
+import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
@@ -26,6 +27,7 @@ def load_existing_results(output_file):
                 return {}
             return results_dict
     except (FileNotFoundError, EOFError):
+        print('error')
         return {}
     except Exception as e:
         print(e)
@@ -96,15 +98,39 @@ def plot_rsa(data, title):
     plt.tight_layout()
     plt.show()
 
-if __name__ == '__main__':
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/80_class_results_renum.pkl"
-    existing_results = load_existing_results(output_pkl_file)
-    print(existing_results)
-    input()
-    for k, v in load_existing_results.items():
-        for feature, value in v.items():
-            print(f"{k} - {feature}: {value}")
+def split_feature(feature, key, data_type):
+    single_feature = {}
+    for k, v in feature.items():
+        if key=='class':
+            single_feature[k] = v[key]
+        else:
+            if data_type == 'float32':
+                single_feature[k] = {key: np.float32(value) for key, value in v[key].items()}
+            elif data_type == 'int':
+                single_feature[k] = {key: value for key, value in v[key].items()}
+    return single_feature
 
+
+
+if __name__ == '__main__':
+    from tqdm import tqdm
+    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/results.pkl"
+    existing_results = load_existing_results(output_pkl_file)
+
+    feature_names = {'class':'int', 'area': 'float32', 'degree': 'int', 'rsa': 'float32', 'order': 'float32', 'centrality': 'float32'}
+    for name, data_type in tqdm(feature_names.items()):
+        new_pkl = rf"/Users/douzhixin/Developer/qPacking/data/test/{name}_results.pkl"
+        new_feature = split_feature(existing_results, name, data_type)
+        with open(new_pkl, "wb") as f:
+            pickle.dump(new_feature, f)
+
+    # output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/70/70_class_results.pkl"
+    # existing_results = load_existing_results(output_pkl_file)
+    #
+    # for k, v in existing_results.items():
+    #     for feature, value in v.items():
+    #         print(f"{k} - {feature}: {value}")
+    #     input()
 
     # dict_keys(['area', 'degree', 'rsa', 'order', 'centrality'])
     # area = [sum(v['area'].values()) for k, v in load_existing_results.items()]

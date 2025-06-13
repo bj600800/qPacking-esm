@@ -47,7 +47,7 @@ class Analyzer:
         class_feature = {}
         for res_id, _ in node_labels.items():
             res_id = int(res_id) - int(self.first_res_id)
-            class_feature[res_id] = i + 1  # cluster index starts from 1, 0 stands for non-cluster residues
+            class_feature[res_id] = i  # cluster index starts from 0, -100 stands for mask of non-cluster residues
 
         return class_feature
 
@@ -143,7 +143,7 @@ class Analyzer:
 
     def run(self):
         packing_res = []
-        struct_features = {'class':{'feature': {}, 'count': 0},
+        struct_features = {'class':{},
                            'area': {},
                            'degree': {},
                            'rsa': {},
@@ -158,12 +158,11 @@ class Analyzer:
                 centrality_feature = self.get_centrality(G)
 
                 packing_res.extend(list(G.nodes()))
-                struct_features['class']['feature'].update(class_feature)
+                struct_features['class'].update(class_feature)
                 struct_features['area'].update(area_feature)
                 struct_features['degree'].update(degree_feature)
                 struct_features['order'].update(order_feature)
                 struct_features['centrality'].update(centrality_feature)
-            struct_features['class']["count"] = len(self.cluster_graphs)
             rsa_dict = self.get_rasa(packing_res)
             struct_features['rsa'] = rsa_dict
 
@@ -344,7 +343,7 @@ class Analyzer:
 
 
 if __name__ == '__main__':
-    pdb_dir = r"/Users/douzhixin/Developer/qPacking/data/structure"
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/results.pkl"
+    pdb_dir = r"/Users/douzhixin/Developer/qPacking/data/test/structure"
+    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/results.pkl"
     dssp = "mkdssp"
     Analyzer.batch_process_pdb_files(pdb_dir, output_pkl_file, dssp)
