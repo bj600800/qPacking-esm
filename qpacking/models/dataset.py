@@ -7,10 +7,12 @@
 # Description: Construct dataset for fine-tuning esm-2
 # ------------------------------------------------------------------------------
 """
+import os
 import random
 import numpy as np
 from Bio import SeqIO
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_from_disk
+
 from qpacking.utils.analyze_pkl import load_existing_results
 
 import torch
@@ -157,7 +159,7 @@ def get_data_loader(split_dataset, data_collator, batch_size):
     return train_dataloader, valid_dataloader
 
 
-def run(fasta_file, pkl_file, model_dir, test_ratio, batch_size, seed):
+def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch_size, seed):
     set_seed(seed)  # for reproducibility
 
     # define the tokenizer
@@ -167,12 +169,18 @@ def run(fasta_file, pkl_file, model_dir, test_ratio, batch_size, seed):
     max_cluster_num = get_clusters_num(raw_data)
 
     dataset = Dataset.from_list(raw_data)
-    tokenized_dataset = dataset.map(
-        lambda x: encode_data(x, tokenizer),
-        batched=False,
-        remove_columns=['id', 'sequence', 'label'],  # processed data will not contain these columns from the original raw data.
-        desc="Tokenizing dataset"
-    )
+
+    if os.path.exists(TOKENIZED_CACHE_PATH):
+        tokenized_dataset = load_from_disk(TOKENIZED_CACHE_PATH)
+    else:
+        tokenized_dataset = dataset.map(
+            lambda x: encode_data(x, tokenizer),
+            batched=False,
+            remove_columns=['id', 'sequence', 'label'],  # processed data will not contain these columns from the original raw data.
+            desc="Tokenizing dataset"
+        )
+        print("Tokenization completed, saving to disk...")
+        tokenized_dataset.save_to_disk(TOKENIZED_CACHE_PATH)
 
     data_collator = DataCollatorWithPaddingForLabels(tokenizer=tokenizer)
     split_dataset = tokenized_dataset.train_test_split(test_size=test_ratio, seed=seed)

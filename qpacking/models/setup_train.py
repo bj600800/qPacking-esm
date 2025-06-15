@@ -7,21 +7,84 @@
 # Description: setup trainer for fine-tuning esm-2
 # ------------------------------------------------------------------------------
 """
-import numpy as np
-import evaluate
-from sklearn.metrics import precision_recall_fscore_support
-import torch
-from transformers import EsmTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback
+from typing import Optional
 
-from qpacking.models import dataset
+import numpy as np
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from transformers import (
+    Trainer,
+    TrainingArguments,
+    EarlyStoppingCallback
+)
+
 from qpacking.models.model import TokenClassificationModel
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class FocalLoss(nn.Module):
+    """
+    Focal Loss: https://arxiv.org/pdf/1708.02002
+    """
+    def __init__(self,
+                 alpha: Optional[torch.Tensor] = None,
+                 gamma: float = 2.0,
+                 reduction: str = 'mean',
+                 ignore_index: int = -100):
+        super().__init__()
+        assert reduction in ('mean', 'sum', 'none')
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+        self.ignore_index = ignore_index
+        self.nll_loss = nn.NLLLoss(weight=self.alpha,
+                                   reduction=reduction,
+                                   ignore_index=ignore_index)
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        device = x.device  # 保证所有计算都在 x 的 device 上
+
+        if self.alpha is not None and self.alpha.device != device:
+            self.alpha = self.alpha.to(device)
+            self.nll_loss.weight = self.alpha  # 更新 NLLLoss 内部的 weight
+
+        if x.ndim > 2:
+            batch_size, seq_len, num_classes = x.shape
+            x = x.view(-1, num_classes)  # (B * L, C)
+            y = y.view(-1)               # (B * L,)
+
+        y = y.to(device)
+
+        mask = y != self.ignore_index
+        x, y = x[mask], y[mask]
+        if len(y) == 0:
+            return torch.tensor(0.0, device=device)
+
+        log_p = F.log_softmax(x, dim=-1)
+        ce_loss = self.nll_loss(log_p, y)
+
+        log_pt = log_p[torch.arange(len(y), device=device), y]
+        pt = log_pt.exp()
+        focal_term = (1 - pt) ** self.gamma
+
+        loss = focal_term * ce_loss
+
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
 
 
 def compute_metrics(eval_preds):
     logits, labels = eval_preds
     predictions = np.argmax(logits, axis=-1)
 
-    # 过滤掉 -100 的位置
     true_labels = []
     true_predictions = []
     for pred, label in zip(predictions, labels):
@@ -34,8 +97,7 @@ def compute_metrics(eval_preds):
         true_labels, true_predictions, average='macro', zero_division=0
     )
 
-    accuracy_metric = evaluate.load("accuracy")
-    acc = accuracy_metric.compute(predictions=true_predictions, references=true_labels)["accuracy"]
+    acc = accuracy_score(true_labels, true_predictions)
 
     return {
         "accuracy": acc,
@@ -45,12 +107,36 @@ def compute_metrics(eval_preds):
     }
 
 
-def train_cluster_classification(model_dir, checkpoints_dir, logging_dir,
-          lora_rank, lora_alpha, lora_dropout,
-          batch_size, num_epochs, seed, lr, num_clusters,
-          train_dataloader, valid_dataloader):
+class FocalLossTrainer(Trainer):
+    def __init__(self, *args, focal_gamma=2.0, focal_alpha=None, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    # load model
+        if focal_alpha is not None and not isinstance(focal_alpha, torch.Tensor):
+            focal_alpha = torch.tensor(focal_alpha, dtype=torch.float32)
+
+        self.focal_loss = FocalLoss(
+            alpha=focal_alpha,
+            gamma=focal_gamma,
+            reduction='mean',
+            ignore_index=-100
+        )
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        device = next(model.parameters()).device
+        labels = inputs.pop("labels").to(device)
+        outputs = model(**inputs)
+        logits = outputs if isinstance(outputs, torch.Tensor) else outputs.logits
+        logits = logits.to(device)
+        loss = self.focal_loss(logits, labels)
+        return (loss, outputs) if return_outputs else loss
+
+
+def train_cluster_classification(
+        model_dir, checkpoints_dir, logging_dir,
+        batch_size, num_epochs, seed, lr, num_clusters,
+        train_dataloader, valid_dataloader,
+        lora_rank, lora_alpha, lora_dropout,
+        focal_gamma=2.0, focal_alpha=None):
     model = TokenClassificationModel(
         model_dir=model_dir,
         num_clusters=num_clusters,
@@ -59,10 +145,6 @@ def train_cluster_classification(model_dir, checkpoints_dir, logging_dir,
         lora_dropout=lora_dropout
     )
 
-    # load tokenizer
-    # tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
-
-    # define training arguments
     training_args = TrainingArguments(
         output_dir=checkpoints_dir,
         learning_rate=lr,
@@ -75,43 +157,22 @@ def train_cluster_classification(model_dir, checkpoints_dir, logging_dir,
         logging_steps=50,
         save_total_limit=2,
         load_best_model_at_end=True,
+        ddp_find_unused_parameters=False,
         seed=seed,
-        report_to="none",
-        fp16=torch.cuda.is_available(),  # 如果支持，自动混合精度
+        report_to="mlflow",
+        fp16=torch.cuda.is_available()
     )
 
-    # setup trainer
-    trainer = Trainer(
+    trainer = FocalLossTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataloader.dataset,
         eval_dataset=valid_dataloader.dataset,
         data_collator=train_dataloader.collate_fn,
         compute_metrics=compute_metrics,
+        focal_gamma=focal_gamma,
+        focal_alpha=focal_alpha,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
 
-    # train!
     trainer.train()
-
-if __name__ == '__main__':
-    model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
-    checkpoints_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking"
-    logging_dir = r"/Users/douzhixin/Developer/qPacking/code/logs"
-
-    fasta_file = r"/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
-    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/class_results.pkl"
-    lr = 2e-5
-    lora_rank = 8
-    lora_alpha = 8
-    lora_dropout = 0.05
-    batch_size = 8
-    num_epochs = 500
-    seed = 3407
-    test_ratio = 0.1
-    train_dataloader, valid_dataloader, num_clusters = dataset.run(fasta_file, pkl_file, model_dir, test_ratio, batch_size, seed)
-
-    train_cluster_classification(model_dir, checkpoints_dir, logging_dir,
-          lora_rank, lora_alpha, lora_dropout,
-          batch_size, num_epochs, seed, lr, num_clusters,
-          train_dataloader, valid_dataloader)

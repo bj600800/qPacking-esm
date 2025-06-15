@@ -19,6 +19,15 @@ Investigation of hydrophobic stacking patterns in protein folding superfamilies 
 **Dependence:**
 ```
 python=3.10
+conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  pytorch-cuda=11.8 -c pytorch -c nvidia
+pip install transformers
+pip install sympy==1.13.1
+pip install datasets
+pip install matplotlib
+pip install biopython
+pip install peft
+pip install scikit-learn
+pip install mlflow
 pip install tqdm
 pip install fair-esm (version=2.0.0)
 pip install melodia-py (version=0.1.4)

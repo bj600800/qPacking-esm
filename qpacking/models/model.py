@@ -12,6 +12,7 @@ from transformers import EsmModel
 from peft import PeftModel, PeftConfig, get_peft_model, LoraConfig
 import torch.nn as nn
 
+
 def print_trainable_parameters(model):
     """
     Prints the number of trainable parameters in the model.
@@ -40,6 +41,7 @@ def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
         model
     """
     model = EsmModel.from_pretrained(model_dir,
+                                     use_safetensors=False,
                                      torch_dtype=torch.float32,
                                      add_pooling_layer=False)
 
@@ -72,21 +74,13 @@ class TokenClassificationModel(nn.Module):
         self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
         self.dropout = nn.Dropout(0.1)
         self.classifier = nn.Linear(self.model.config.hidden_size, num_clusters)  # nn.Linear(input, output)
-        self.loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
 
     def forward(self, input_ids, attention_mask, labels=None):
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = self.dropout(outputs.last_hidden_state)  # [batch, seq_len, hidden=1280]
         logits = self.classifier(hidden_states)  # [batch, seq_len, num_clusters] 1280 -> num_clusters
-        if labels is not None:
-            # 把 logits 和 labels reshape 成 [batch * seq_len, num_classes] 和 [batch * seq_len]
-            loss = self.loss_fn(
-                logits.view(-1, logits.shape[-1]),
-                labels.view(-1)
-            )
-            return {"loss": loss, "logits": logits}
-        else:
-            return {"logits": logits}
+
+        return logits
 
 
 if __name__ == '__main__':
@@ -106,7 +100,7 @@ if __name__ == '__main__':
     # 加载 tokenizer（对应 ESM 模型）
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
     # 真实氨基酸序列（可改为你自己的）
-    sequence = ["MTEITAAMVKELRESTGAGMMDCKNALSETQHEWAYG", "MTEITAAMVKELRESTGAGMMDCKNALSETQHEWAYG"]
+    sequence = "MTEITAAMVKELRESTGAGMMDCKNALSETQHEWAYG"
 
     # 使用 tokenizer 编码
     encoded = tokenizer(sequence, return_tensors="pt", padding=True, truncation=True, max_length=512)
@@ -116,9 +110,17 @@ if __name__ == '__main__':
     attention_mask = encoded["attention_mask"]  # shape: [1, seq_len]
 
     # 推理
+    seq_len = len(sequence)  # 39
+    batch_size = 1
+    num_classes = 5
+
+    # 生成一个 labels，值在 [0, 4] 之间
+    labels = torch.randint(low=0, high=num_classes, size=(batch_size, seq_len))
+    labels[0, 0] = -100  # 设置第一个位置为 -100，表示忽略该位置的损失计算
+
     with torch.no_grad():
-        logits = model(input_ids=input_ids, attention_mask=attention_mask)
-    print(logits)  # 输出形状: [1, seq_len, num_clusters]
+        logits = torch.randn(batch_size, seq_len, num_classes, requires_grad=True)
+    print(logits.shape) # [1, 37, 5]
 
 
 

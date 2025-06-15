@@ -114,12 +114,11 @@ def split_feature(feature, key, data_type):
 
 if __name__ == '__main__':
     from tqdm import tqdm
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/results.pkl"
+    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/70/70_results.pkl"
     existing_results = load_existing_results(output_pkl_file)
-
     feature_names = {'class':'int', 'area': 'float32', 'degree': 'int', 'rsa': 'float32', 'order': 'float32', 'centrality': 'float32'}
     for name, data_type in tqdm(feature_names.items()):
-        new_pkl = rf"/Users/douzhixin/Developer/qPacking/data/test/{name}_results.pkl"
+        new_pkl = rf"/Users/douzhixin/Developer/qPacking/data/feature/70/70_{name}_results.pkl"
         new_feature = split_feature(existing_results, name, data_type)
         with open(new_pkl, "wb") as f:
             pickle.dump(new_feature, f)
