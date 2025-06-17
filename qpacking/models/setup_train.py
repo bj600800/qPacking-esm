@@ -15,14 +15,19 @@ from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from peft import PeftModel
+import mlflow
 from transformers import (
     Trainer,
     TrainingArguments,
-    EarlyStoppingCallback
+    EarlyStoppingCallback,
+    TrainerCallback
 )
 
 from qpacking.models.model import TokenClassificationModel
+from qpacking.utils import logger
+
+logger = logger.setup_log(name=__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -80,6 +85,8 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
+class TrainMetricsCallback(TrainerCallback):
+    pass
 
 def compute_metrics(eval_preds):
     logits, labels = eval_preds
@@ -148,20 +155,25 @@ def train_cluster_classification(
     training_args = TrainingArguments(
         output_dir=checkpoints_dir,
         learning_rate=lr,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        eval_strategy="steps",
+        save_strategy="steps",
+        eval_steps=1,
+        save_steps=1,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         num_train_epochs=num_epochs,
         logging_dir=logging_dir,
-        logging_steps=50,
-        save_total_limit=2,
+        logging_steps=1,
+        save_total_limit=3,
         load_best_model_at_end=True,
         ddp_find_unused_parameters=False,
         seed=seed,
         report_to="mlflow",
+        metric_for_best_model="accuracy",
+        greater_is_better=True,
         fp16=torch.cuda.is_available()
     )
+
 
     trainer = FocalLossTrainer(
         model=model,
@@ -176,3 +188,13 @@ def train_cluster_classification(
     )
 
     trainer.train()
+
+    # 保存当前加载的模型（即最佳）
+    best_model_path = f"{checkpoints_dir}/best"
+    # 如果是 LoRA 微调模型（PeftModel），用 save_pretrained 正确保存 adapter
+    if isinstance(trainer.model.model, PeftModel):
+        trainer.model.model.save_pretrained(best_model_path)
+        logger.info(f"LoRA adapter saved to: {best_model_path}")
+    else:
+        logger.warning("The model is not a PeftModel. Skipping save_pretrained.")
+

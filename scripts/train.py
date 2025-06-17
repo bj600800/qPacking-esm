@@ -17,8 +17,8 @@ TOKENIZED_CACHE_PATH = r"/Users/douzhixin/Developer/qPacking/data/test/tokenized
 fasta_file = "/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
 pkl_file = "/Users/douzhixin/Developer/qPacking/data/test/class_results.pkl"
 
-batch_size = 8
-num_epochs = 2
+batch_size = 16
+num_epochs = 200
 seed = 3407
 lr = 2e-5
 lora_rank = 8
@@ -26,11 +26,14 @@ lora_alpha = 8
 lora_dropout = 0.05
 test_ratio = 0.1
 focal_gamma = 2.0
-focal_alpha = None
+
+
 
 train_dataloader, valid_dataloader, num_clusters = dataset.run(
     fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch_size, seed
 )
+focal_alpha = [0.5 if i < 3 else 5 for i in range(num_clusters)]
+
 
 train_cluster_classification(
     model_dir=model_dir,

@@ -45,7 +45,7 @@ def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
                                      torch_dtype=torch.float32,
                                      add_pooling_layer=False)
 
-    model.gradient_checkpointing_enable()  # reduce the number of stored activations
+    # model.gradient_checkpointing_enable()  # reduce the number of stored activations
     model.enable_input_require_grads()  # allow lora update
 
     config = LoraConfig(
