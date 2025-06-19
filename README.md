@@ -8,7 +8,9 @@ All params stored in experiment.yaml from experiments/. Config.py manages these 
 ├── logs/                # Log output directory (e.g., train.log, test.log)
 ├── predict.py           # Inference script entry point
 ├── scripts/             # Execution scripts: training, testing, zero-shot inference
-    └── experiments/         # Experiment configuration files (e.g., YAML)
+    ├── experiments/         # Experiment configuration files (e.g., YAML)
+    ├── config.py            # Manage experiment.yaml
+    └── train.py             # Acquire params from config.py
 ├── README.md            # This file
 └── qpacking/            # Main project code package
     ├── data_prepare/        # Data preprocessing utilities
