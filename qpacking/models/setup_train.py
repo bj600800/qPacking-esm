@@ -144,9 +144,10 @@ def train_cluster_classification(
         train_dataloader, valid_dataloader,
         lora_rank, lora_alpha, lora_dropout,
         focal_gamma=2.0, focal_alpha=None):
+
     model = TokenClassificationModel(
         model_dir=model_dir,
-        num_clusters=num_clusters,
+        num_clusters=2,
         lora_rank=lora_rank,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout
@@ -175,18 +176,26 @@ def train_cluster_classification(
     )
 
 
-    trainer = FocalLossTrainer(
+    # trainer = FocalLossTrainer(
+    #     model=model,
+    #     args=training_args,
+    #     train_dataset=train_dataloader.dataset,
+    #     eval_dataset=valid_dataloader.dataset,
+    #     data_collator=train_dataloader.collate_fn,
+    #     compute_metrics=compute_metrics,
+    #     focal_gamma=focal_gamma,
+    #     focal_alpha=focal_alpha,
+    #     callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+    # )
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataloader.dataset,
         eval_dataset=valid_dataloader.dataset,
         data_collator=train_dataloader.collate_fn,
         compute_metrics=compute_metrics,
-        focal_gamma=focal_gamma,
-        focal_alpha=focal_alpha,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
-
     trainer.train()
 
     # 保存当前加载的模型（即最佳）

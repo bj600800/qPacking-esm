@@ -10,6 +10,7 @@
 import torch
 from transformers import EsmModel
 from peft import PeftModel, PeftConfig, get_peft_model, LoraConfig
+from transformers.modeling_outputs import TokenClassifierOutput
 import torch.nn as nn
 
 
@@ -80,7 +81,17 @@ class TokenClassificationModel(nn.Module):
         hidden_states = self.dropout(outputs.last_hidden_state)  # [batch, seq_len, hidden=1280]
         logits = self.classifier(hidden_states)  # [batch, seq_len, num_clusters] 1280 -> num_clusters
 
-        return logits
+        loss = None
+        if labels is not None:
+            loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
+            # reshape to [B*L, C] vs [B*L]
+            loss = loss_fn(logits.view(-1, 2), labels.view(-1))
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits
+        )
+
 
 
 if __name__ == '__main__':

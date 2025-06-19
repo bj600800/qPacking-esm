@@ -98,26 +98,29 @@ def encode_data(data, tokenizer):
                                 return_tensors=None)
 
     label_dict = {int(k): v for k, v in data['label'].items()}
+
     hydrophobic_idx = [k for k, v in label_dict.items() if v is not None]
 
     # init labels and attention_mask
     input_len = len(tokenized_input['input_ids'])
     labels = [-100] * input_len
-    attention_mask = [0] * input_len
+    # attention_mask = [0] * input_len
 
     # update labels and attention_mask with label_dict and hydrophobic_idx
     for i in range(1, input_len - 1):
         seq_idx = i - 1 # sequence index starts from 0
         if seq_idx in hydrophobic_idx:
-            labels[i] = label_dict.get(seq_idx, -100)
-            attention_mask[i] = 1  # only unmask the hydrophobic positions in case of other positions affect the experiment explanation
-
+            labels[i] = 1
+            # attention_mask[i] = 1  # only unmask the hydrophobic positions in case of other positions affect the experiment explanation
+        else:
+            labels[i] = 0
     # set <cls>, <eos> attention_mask to 1
-    attention_mask[0] = 1  # <cls>
-    attention_mask[-1] = 1  # <eos>
+    # attention_mask[0] = 1  # <cls>
+    # attention_mask[-1] = 1  # <eos>
 
     tokenized_input['labels'] = labels
-    tokenized_input['attention_mask'] = attention_mask
+
+    # tokenized_input['attention_mask'] = attention_mask
 
     return tokenized_input
 
@@ -199,11 +202,12 @@ if __name__ == '__main__':
     fasta_file = r"/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
     pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/class_results.pkl"
     model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
+    TOKENIZED_CACHE_PATH = None
 
     # config params
     seed = 3407
     test_ratio = 0.1
     batch_size = 8
 
-    run(fasta_file, pkl_file, model_dir, test_ratio, batch_size, seed)
+    run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch_size, seed)
 

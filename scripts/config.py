@@ -4,6 +4,6 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/2/14
 
-# Description: static configurations for structural feature calculation, model training, and evaluation.
+# Description: Dynamic management for experiment conditions
 # ------------------------------------------------------------------------------
 """
