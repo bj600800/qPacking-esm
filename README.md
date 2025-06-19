@@ -10,9 +10,9 @@ All params stored in experiment.yaml from experiments/. Config.py manages these 
 ├── predict.py           # Inference script entry point
 ├── README.md            # This file
 └── scripts/             # Execution scripts: training, testing, zero-shot inference
-    ├── experiments/         # Experiment configuration files (e.g., YAML)
-    ├── config.py            # Manage experiment.yaml
-    └── train.py             # Acquire params from config.py
+    ├── experiments/         # Configuration management: Experiment configuration files (e.g., YAML)
+    ├── config.py            # Configuration management: Manage experiment.yaml
+    └── train.py             # Let's training!
 ├── qpacking/            # Main project code package
     ├── data_prepare/        # Data preprocessing utilities
     ├── hydrocluster/        # Hydrophobic cluster identification and analysis
