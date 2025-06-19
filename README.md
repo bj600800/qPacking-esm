@@ -1,5 +1,5 @@
 # qPacking
-Investigation of hydrophobic stacking patterns in protein folding superfamilies based on the TED database, leveraging the ESM2-650M language model.
+Investigation of hydrophobic stacking patterns in protein folding superfamilies based on the TED database as well as ESM2 language model.
 
 **Content**
 
