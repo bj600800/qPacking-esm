@@ -39,7 +39,7 @@ pip install melodia-py (version=0.1.4)
 
 **Download checkpoints:**
 
-ESM2-weight: https://dl.fbaipublicfiles.com/fair-esm/models/esm2_t33_650M_UR50D.pt
+ESM2-weight: https://huggingface.co/facebook/esm2_t36_3B_UR50D
 
 ESM2-contact-regression: https://dl.fbaipublicfiles.com/fair-esm/regression/esm2_t33_650M_UR50D-contact-regression.pt
 
