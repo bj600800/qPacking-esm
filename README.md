@@ -51,4 +51,4 @@ conda install libboost==1.73.0
 ```
 
 ## Notice
-- Checkpoints and used-datasets are available in the zenodo.
+- Checkpoints and used-datasets are available in zenodo.
