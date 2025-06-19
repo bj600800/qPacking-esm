@@ -2,6 +2,7 @@
 Investigation of hydrophobic stacking patterns in protein folding superfamilies based on the TED database, leveraging the ESM2-650M language model.
 
 **Content**
+
 All params stored in experiment.yaml from experiments/. Config.py manages these yamls, and passes the params to predict.py. 
 ```
 ├── logs/                # Log output directory (e.g., train.log, test.log)
