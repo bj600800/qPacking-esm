@@ -131,7 +131,7 @@ class Analyzer:
             residue_mask = np.isin(self.structure.res_id, res_id) & np.isin(self.structure.atom_name, 'CA')
             coord = self.structure[residue_mask].coord
             coords.append(coord[0])
-        D = cdist(np.array(coords), np.array(coords))  # 直接得到 NxN 的距离矩阵
+        D = cdist(np.array(coords), np.array(coords))  # Matrix NxN
         distance_sums = np.sum(D, axis=1)
         N = len(res_list) - 1
 
@@ -177,6 +177,7 @@ class Analyzer:
             return struct_features
         else:
             return False
+
 
     @staticmethod
     def load_existing_results(output_file):
@@ -262,26 +263,25 @@ class Analyzer:
         cluster_graphs, structure = cluster_identifier.run(pdb_file)
         analyzer = cls(cluster_graphs, structure, pdb_file, dssp)
         result = analyzer.run()
-        # FIFO parallel processing: put result into queue
+        # FIFO
         pdb_name = pdb_file.stem
 
         if result:
-            # 不能什么都往里面放，判断必须为正常数据
+            # Only put valid data in there
             queue.put({pdb_name: result})
 
     @classmethod
     def batch_process_pdb_files(cls, pdb_directory, output_pkl_file, dssp):
         time1 = time.time()
-        num_workers = multiprocessing.cpu_count()
-
-        #TODO: Remove this debug block before production
-        if os.path.exists(output_pkl_file):
-            os.remove(output_pkl_file)
-        num_workers = 2
-        # logger.info("workers 1 for debug.")
-        #TODO: Remove this debug block before production
-
+        # num_workers = multiprocessing.cpu_count()
+        num_workers = 2  # It is the best performance
         logger.info(f"Starting {num_workers} producer threads and 1 consumer thread.")
+
+        #TODO: Remove this debug block before production
+        # if os.path.exists(output_pkl_file):
+        #     os.remove(output_pkl_file)
+
+        #TODO: Remove this debug block before production
 
         pdb_files = list(Path(pdb_directory).glob("*.pdb"))
         logger.info(f"Found {len(pdb_files)} PDB files in {Path(pdb_directory)}")
@@ -325,7 +325,7 @@ class Analyzer:
         executor.shutdown(wait=True)
         logger.info("Producer threads closed safely.")
 
-        # send end signal to consumer
+        # send The End signal to consumer
         queue.put(None)
         writer_process.join()  # wait consumer thread to finish
 

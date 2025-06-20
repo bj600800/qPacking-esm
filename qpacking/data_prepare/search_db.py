@@ -82,11 +82,11 @@ def get_ted_ids(sql_db, output_id_file, helix, strand, turn, nres):
     logger.info(f"Saved total {len(rows)} items to {output_id_file}")
 
 
-sql_db = args.db
-output_id_file = args.id
-helix = args.helix
-strand = args.strand
-turn = args.turn
-nres = args.nres
-
-get_ted_ids(sql_db, output_id_file, helix, strand, turn, nres)
+if __name__ == '__main__':
+    sql_db = args.db
+    output_id_file = args.id
+    helix = args.helix
+    strand = args.strand
+    turn = args.turn
+    nres = args.nres
+    get_ted_ids(sql_db, output_id_file, helix, strand, turn, nres)

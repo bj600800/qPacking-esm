@@ -8,7 +8,6 @@
 # ------------------------------------------------------------------------------
 """
 import numpy as np
-from collections import Counter
 import networkx as nx
 import biotite.structure as struc
 from biotite.structure.info import vdw_radius_single

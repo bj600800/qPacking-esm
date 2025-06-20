@@ -7,12 +7,18 @@
 # Description: 
 # ------------------------------------------------------------------------------
 """
+import os
 import pickle
+from tqdm import tqdm
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
+
+from qpacking.utils import logger
+
+logger = logger.setup_log(name=__name__)
 
 def load_existing_results(output_file):
     """
@@ -27,34 +33,33 @@ def load_existing_results(output_file):
                 return {}
             return results_dict
     except (FileNotFoundError, EOFError):
-        print('error')
+        logger.error('FileNotFoundError')
         return {}
     except Exception as e:
-        print(e)
+        logger.error(e)
         return {}
 
+
 def plot_area(data, title):
-    # 转成 numpy 数组
     data = np.array(data)
 
-    # 计算均值和标准差
+    # Calculate mean and sd
     mu, sigma = np.mean(data), np.std(data)
 
-    # 创建绘图
     plt.figure(figsize=(10, 6))
 
-    # 绘制直方图
+    # plot histogram
     sns.histplot(data, bins=10, stat="density", color='skyblue', edgecolor='black')
 
-    # 单独绘制 KDE 曲线
+    # plot kde curve
     sns.kdeplot(data, color='steelblue', linewidth=2, label="KDE")
-    # 高斯分布拟合曲线
+
+    # fit gaussian curve
     x = np.linspace(data.min(), data.max(), 1000)
-    # x = np.linspace(data.min()-1000, data.max()+1000, 1000)
+    # x = np.linspace(data.min()-1000, data.max()+1000, 1000)  # range shift
     y = norm.pdf(x, mu, sigma)
     plt.plot(x, y, 'r--', label=f'Gaussian Fit\nμ={mu:.2f}, σ={sigma:.2f}')
 
-    # 标注与美化
     plt.title(f"Distribution of {title}")
     plt.xlabel("Value", fontsize=14)
     plt.ylabel("Density", fontsize=14)
@@ -63,19 +68,16 @@ def plot_area(data, title):
     plt.tight_layout()
     plt.show()
 
-def plot_degree(data, title):
-    # 计算均值和标准差
-    mu, sigma = np.mean(data), np.std(data)
 
-    # 绘制直方图（归一化密度）
+def plot_degree(data, title):
+    mu, sigma = np.mean(data), np.std(data)
     count, bins, ignored = plt.hist(data, bins=range(min(data), max(data) + 2), density=True, alpha=0.6,
                                     color='skyblue', edgecolor='black')
 
-    # 拟合的高斯分布曲线
+    # fit gaussian curve
     x = np.linspace(min(data) - 1, max(data) + 1, 1000)
     y = norm.pdf(x, mu, sigma)
 
-    # 绘图
     plt.plot(x, y, 'r--', label=f'Gaussian Fit\nμ={mu:.2f}, σ={sigma:.2f}')
     plt.title(f"Distribution of {title}")
     plt.xlabel('Value', fontsize=14)
@@ -83,20 +85,19 @@ def plot_degree(data, title):
     plt.legend()
     plt.show()
 
+
 def plot_rsa(data, title):
-    # 创建绘图
     plt.figure(figsize=(10, 6))
 
-    # 绘制直方图并获取 bin 信息
+    # plot histogram
     counts, bin_edges, _ = plt.hist(data, bins=10, density=True,
                                     color='skyblue', edgecolor='black', alpha=0.6)
-
-    # 标注与美化
     plt.title(f"Distribution of {title}")
     plt.xlabel("Value", fontsize=14)
     plt.ylabel("Density", fontsize=14)
     plt.tight_layout()
     plt.show()
+
 
 def split_feature(feature, key, data_type):
     single_feature = {}
@@ -111,42 +112,31 @@ def split_feature(feature, key, data_type):
     return single_feature
 
 
-
-if __name__ == '__main__':
-    from tqdm import tqdm
-    output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/80/80_results.pkl"
-    existing_results = load_existing_results(output_pkl_file)
-    print(len(existing_results))
-    input()
-    feature_names = {'class':'int', 'area': 'float32', 'degree': 'int', 'rsa': 'float32', 'order': 'float32', 'centrality': 'float32'}
+def run_split(input_pkl):
+    dir_path = os.path.dirname(input_pkl)
+    file_name = os.path.basename(input_pkl)
+    existing_results = load_existing_results(input_pkl)
+    feature_names = {'class': 'int', 'area': 'float32', 'degree': 'int', 'rsa': 'float32', 'order': 'float32',
+                     'centrality': 'float32'}
     for name, data_type in tqdm(feature_names.items()):
-        new_pkl = rf"/Users/douzhixin/Developer/qPacking/data/feature/70/70_{name}_results.pkl"
+        new_pkl = os.path.join(dir_path, file_name.split('.')[0]+f'_{name}.pkl')
         new_feature = split_feature(existing_results, name, data_type)
         with open(new_pkl, "wb") as f:
             pickle.dump(new_feature, f)
 
-    # output_pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/70/70_class_results.pkl"
-    # existing_results = load_existing_results(output_pkl_file)
-    #
-    # for k, v in existing_results.items():
-    #     for feature, value in v.items():
-    #         print(f"{k} - {feature}: {value}")
-    #     input()
 
-    # dict_keys(['area', 'degree', 'rsa', 'order', 'centrality'])
-    # area = [sum(v['area'].values()) for k, v in load_existing_results.items()]
-    # plot_area(area, 'SASA Area')
+def plot_feature(load_existing_results):
+    area = [sum(v['area'].values()) for k, v in load_existing_results.items()]
+    plot_area(area, 'SASA Area')
 
-    # degree = [i for k, v in load_existing_results.items() for i in v['degree'].values()]
-    # plot_degree(degree, 'Packing Degree')
-    # print(degree)
+    degree = [i for k, v in load_existing_results.items() for i in v['degree'].values()]
+    plot_degree(degree, 'Packing Degree')
 
-    # rsa = [i for k, v in load_existing_results.items() for i in v['rsa'].values()]
-    # plot_rsa(rsa, 'rSAS')
+    rsa = [i for k, v in load_existing_results.items() for i in v['rsa'].values()]
+    plot_rsa(rsa, 'rSAS')
 
-    # order = [sum(v['order'].values()) for k, v in load_existing_results.items()]
-    # plot_rsa(order, 'Packing order')
-    #
-    # centrality = [i for k, v in load_existing_results.items() for i in v['centrality'].values()]
-    # plot_area(centrality, 'centrality')
+    order = [sum(v['order'].values()) for k, v in load_existing_results.items()]
+    plot_rsa(order, 'Packing order')
 
+    centrality = [i for k, v in load_existing_results.items() for i in v['centrality'].values()]
+    plot_area(centrality, 'centrality')

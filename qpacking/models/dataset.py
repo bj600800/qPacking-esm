@@ -11,13 +11,16 @@ import os
 import random
 import numpy as np
 from Bio import SeqIO
-from datasets import Dataset, DatasetDict, load_from_disk
-
-from qpacking.utils.analyze_pkl import load_existing_results
 
 import torch
 from torch.utils.data import DataLoader
 from transformers import EsmTokenizer, DataCollatorWithPadding
+from datasets import Dataset, DatasetDict, load_from_disk
+
+from qpacking.utils.analyze_pkl import load_existing_results
+from qpacking.utils import logger
+
+logger = logger.setup_log(name=__name__)
 
 def set_seed(seed):
     random.seed(seed)
@@ -164,8 +167,6 @@ def get_data_loader(split_dataset, data_collator, batch_size):
 
 def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch_size, seed):
     set_seed(seed)  # for reproducibility
-
-    # define the tokenizer
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
 
     raw_data = process_raw_data(fasta_file, pkl_file)
@@ -174,6 +175,7 @@ def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch
     dataset = Dataset.from_list(raw_data)
 
     if os.path.exists(TOKENIZED_CACHE_PATH):
+        logger.info("Tokenization history found, loading to memory...")
         tokenized_dataset = load_from_disk(TOKENIZED_CACHE_PATH)
     else:
         tokenized_dataset = dataset.map(
@@ -182,17 +184,12 @@ def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch
             remove_columns=['id', 'sequence', 'label'],  # processed data will not contain these columns from the original raw data.
             desc="Tokenizing dataset"
         )
-        print("Tokenization completed, saving to disk...")
+        logger.info("Tokenization completed, saving to disk...")
         tokenized_dataset.save_to_disk(TOKENIZED_CACHE_PATH)
 
     data_collator = DataCollatorWithPaddingForLabels(tokenizer=tokenizer)
     split_dataset = tokenized_dataset.train_test_split(test_size=test_ratio, seed=seed)
     train_dataloader, valid_dataloader = get_data_loader(split_dataset, data_collator, batch_size)
-
-    # print for test
-    # batch = next(iter(train_dataloader))
-    # for key, value in batch.items():
-    #     print(f"{key}: {value}")
 
     return train_dataloader, valid_dataloader, max_cluster_num
 
@@ -204,7 +201,7 @@ if __name__ == '__main__':
     model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
     TOKENIZED_CACHE_PATH = None
 
-    # config params
+    # configs params
     seed = 3407
     test_ratio = 0.1
     batch_size = 8

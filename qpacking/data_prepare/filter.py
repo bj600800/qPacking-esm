@@ -27,7 +27,7 @@ def calc_vector(points):
     :return:
     orientation vector
     """
-    pca = PCA(n_components=1)  # 主成分分析，n_components=1表示拟合一条直线
+    pca = PCA(n_components=1)
     pca.fit(points)
 
     line_direction = pca.components_[0]
@@ -50,7 +50,7 @@ def check_orientation(vector1, vector2):
 
 def check_sheet_orientation(sheet1, sheet2, structure):
     ca_coords_sheet1 = get_ca_coords(sheet1, structure)
-    vector_sheet1 = calc_vector(ca_coords_sheet1)  # first what is , then of whom
+    vector_sheet1 = calc_vector(ca_coords_sheet1)
 
     ca_coords_sheet2 = get_ca_coords(sheet2, structure)
     vector_sheet2 = calc_vector(ca_coords_sheet2)
@@ -180,8 +180,6 @@ def detect_beta_barrel(sheet_dict):
     """
     graph = create_sheet_graph(sheet_dict)
     sheet_bool = is_cycle(graph)
-
-
     return sheet_bool
 
 def order_ss_id(ss_dict):
@@ -228,7 +226,6 @@ def search_digraph_motif(graph):
         start, end = sheet_indices[i], sheet_indices[i + 1]
         nodes_list = list(graph.nodes)[start + 1:end]
         has_helix = any(x.startswith('helix') for x in nodes_list)
-        # has_turn = any(x.startswith('turn') for x in nodes_list)
         if has_helix:
             valid_transitions += 1
         if valid_transitions == 7:
@@ -263,6 +260,7 @@ def run(ss_dict):
     # check beta-sheet barrel
     sheet_dict = ss_dict['sheet']
     sheet_bool = detect_beta_barrel(sheet_dict)
+
     # check alpha-helix barrel
     alpha_bool = detect_alpha_barrel(ss_dict)
     if sheet_bool and alpha_bool:

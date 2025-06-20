@@ -105,8 +105,9 @@ def crawl_struct(id_dict, structure_folder):
     logger.info(f"Crawled structures: {len(os.listdir(structure_folder))}")
 
 
-structure_folder = args.pdb
-output_id_file = args.id
+if __name__ == '__main__':
+    structure_folder = args.pdb
+    output_id_file = args.id
+    id_dict = get_ted_ids(output_id_file)
+    crawl_struct(id_dict, structure_folder)
 
-id_dict = get_ted_ids(output_id_file)
-crawl_struct(id_dict, structure_folder)

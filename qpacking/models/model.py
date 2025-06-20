@@ -12,6 +12,9 @@ from transformers import EsmModel
 from peft import PeftModel, PeftConfig, get_peft_model, LoraConfig
 from transformers.modeling_outputs import TokenClassifierOutput
 import torch.nn as nn
+from qpacking.utils import logger
+
+logger = logger.setup_log(name=__name__)
 
 
 def print_trainable_parameters(model):
@@ -24,10 +27,10 @@ def print_trainable_parameters(model):
         all_param += param.numel()
         if param.requires_grad:
             trainable_params += param.numel()
-            print(f"{name}")
+            logger.info(f"{name} 🔥 Trainable")
         else:
-            print(f"{name} 🧊 Frozen")
-    print(
+            logger.info(f"{name} 🧊 Frozen")
+    logger.info(
         f"trainable params: {trainable_params} || all params: {all_param} || trainable: {round(100 * trainable_params / all_param, 2)}%"
     )
 
@@ -98,7 +101,7 @@ if __name__ == '__main__':
     from transformers import EsmTokenizer
     model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t33_650M_UR50D"
 
-    # config params
+    # configs params
     num_clusters = 5
     lora_rank = 8
     lora_alpha = 8

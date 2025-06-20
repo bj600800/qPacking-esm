@@ -61,7 +61,7 @@ def draw_graph_interactive(G, output_file):
     def get_color(degree, max_degree=max_degree):
         base_color = mcolors.hex2color("#0d47a1")
         min_color = [c + (1 - c) for c in base_color]
-        factor = degree / max_degree  # 归一化
+        factor = degree / max_degree  # normalization
         color = [(1 - factor) * min_c + factor * base_c for min_c, base_c in zip(min_color, base_color)]
         return mcolors.to_hex(color)
 
@@ -72,7 +72,7 @@ def draw_graph_interactive(G, output_file):
         net.get_node(node)["label"] = f"residue {node} (degree: {degree})"
 
     net.show(output_file)
-    print(f"HTML graph：{output_file}")
+    logger.info(f"HTML graph：{output_file}")
 
 def show_hydrocluster_pymol(pdb_file, cluster_graphs):
     """

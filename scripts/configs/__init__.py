@@ -2,8 +2,8 @@
 # ------------------------------------------------------------------------------
 # Author:    Dou Zhixin
 # Email:     bj600800@gmail.com
-# DATE:      2025/2/14
+# DATE:      2025/6/19
 
-# Description: Dynamic management for experiment conditions
+# Description: 
 # ------------------------------------------------------------------------------
 """

@@ -11,7 +11,9 @@ from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM
+from qpacking.utils import logger
 
+logger = logger.setup_log(name=__name__)
 
 def load_model_and_tokenizer(model_path, device):
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
@@ -116,7 +118,7 @@ def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, 
     elif scoring_strategy == "pseudo-ppl":
         df = score_with_pseudo_ppl(df, sequence, model, tokenizer, offset_idx, mutation_col, model_name)
 
-    print("Writing to file:", dms_output)
+    logger.info("Writing to file:", dms_output)
     df.to_csv(dms_output, index=False)
 
 

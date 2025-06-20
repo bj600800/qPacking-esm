@@ -8,7 +8,7 @@
 # ------------------------------------------------------------------------------
 """
 from tqdm import tqdm
-
+from collections import Counter
 import torch
 import torch.nn as nn
 from transformers import EsmModel, EsmTokenizer
@@ -16,8 +16,9 @@ from peft import PeftModel
 
 from sklearn.metrics import classification_report
 from qpacking.models import dataset
-from collections import Counter
+from qpacking.utils import logger
 
+logger = logger.setup_log(name=__name__)
 
 class TokenClassificationModel(nn.Module):
     def __init__(self, model_with_lora, num_clusters):
@@ -56,10 +57,10 @@ def evaluate(model, dataloader, device):
 
             all_preds.extend(preds_flat.cpu().tolist())
             all_labels.extend(labels_flat.cpu().tolist())
-    print("标签类别分布:", Counter(all_labels))
-    print("预测类别分布:", Counter(all_preds))
-    print("\n📊 Classification Report:")
-    print(classification_report(all_labels, all_preds, digits=4))
+    logger.info("标签类别分布:", Counter(all_labels))
+    logger.info("预测类别分布:", Counter(all_preds))
+    logger.info("\n Classification Report:")
+    logger.info(classification_report(all_labels, all_preds, digits=4))
 
 model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
 peft_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking/best"

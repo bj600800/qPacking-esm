@@ -14,6 +14,9 @@ from tqdm import tqdm
 
 import biotite.structure.io as strucio
 import biotite.structure as struc
+from qpacking.utils import logger
+
+logger = logger.setup_log(name=__name__)
 
 def load_existing_results(output_file):
     """
@@ -30,7 +33,7 @@ def load_existing_results(output_file):
     except (FileNotFoundError, EOFError):
         return {}
     except Exception as e:
-        print(e)
+        logger.error(e)
         return {}
 
 def get_first_residue_id(structure):
@@ -62,16 +65,12 @@ def renumber_resid(feature, first_res_id):
             new_feature[res_id] = feat
         else:
             continue
-
-
-
     return new_feature
 
 
 def save_to_pickle(data, output_file):
     with open(output_file, "wb") as f:
         pickle.dump(data, f)
-
 
 def run(pdb_dir, pkl_file, new_file):
     new_feature = {}
@@ -97,7 +96,7 @@ def run(pdb_dir, pkl_file, new_file):
         else:
             if _:
                 new_feature[pdb_name] = _
-    print(f"Renumbered {renumber_count} structures out of {len(pdb_files)}")
+    logger.info(f"Renumbered {renumber_count} structures out of {len(pdb_files)}")
     save_to_pickle(new_feature, new_file)
     return new_feature
 

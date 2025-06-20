@@ -15,8 +15,9 @@ All params stored in experiment.yaml from experiments/. Config.py manages these 
     ├── models/              # Core DL modules: model, dataset, training, evaluation
     └── utils/               # Utility functions: logging, visualization, etc.
 └── scripts/             # Execution scripts: training, testing, zero-shot inference
-    ├── experiments/         # Configuration management: Experiment configuration files (e.g., YAML)
-    ├── config.py            # Configuration management: Manage experiment.yaml
+    └── hyperparams/         # manage all hyperparams of qPacking fine-tuning
+        ├── experiment1.yaml     # experiment_1 params
+        └── config.py            # seperate data flow and code flow. Data flow manages data type and value.
     └── train.py             # Let's training!
 
 ```

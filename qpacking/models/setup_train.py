@@ -85,8 +85,29 @@ class FocalLoss(nn.Module):
         else:
             return loss
 
-class TrainMetricsCallback(TrainerCallback):
-    pass
+class FocalLossTrainer(Trainer):
+    def __init__(self, *args, focal_gamma=2.0, focal_alpha=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if focal_alpha is not None and not isinstance(focal_alpha, torch.Tensor):
+            focal_alpha = torch.tensor(focal_alpha, dtype=torch.float32)
+
+        self.focal_loss = FocalLoss(
+            alpha=focal_alpha,
+            gamma=focal_gamma,
+            reduction='mean',
+            ignore_index=-100
+        )
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        device = next(model.parameters()).device
+        labels = inputs.pop("labels").to(device)
+        outputs = model(**inputs)
+        logits = outputs if isinstance(outputs, torch.Tensor) else outputs.logits
+        logits = logits.to(device)
+        loss = self.focal_loss(logits, labels)
+        return (loss, outputs) if return_outputs else loss
+
 
 def compute_metrics(eval_preds):
     logits, labels = eval_preds
@@ -114,40 +135,18 @@ def compute_metrics(eval_preds):
     }
 
 
-class FocalLossTrainer(Trainer):
-    def __init__(self, *args, focal_gamma=2.0, focal_alpha=None, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if focal_alpha is not None and not isinstance(focal_alpha, torch.Tensor):
-            focal_alpha = torch.tensor(focal_alpha, dtype=torch.float32)
-
-        self.focal_loss = FocalLoss(
-            alpha=focal_alpha,
-            gamma=focal_gamma,
-            reduction='mean',
-            ignore_index=-100
-        )
-
-    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-        device = next(model.parameters()).device
-        labels = inputs.pop("labels").to(device)
-        outputs = model(**inputs)
-        logits = outputs if isinstance(outputs, torch.Tensor) else outputs.logits
-        logits = logits.to(device)
-        loss = self.focal_loss(logits, labels)
-        return (loss, outputs) if return_outputs else loss
-
-
 def train_cluster_classification(
         model_dir, checkpoints_dir, logging_dir,
-        batch_size, num_epochs, seed, lr, num_clusters,
+        batch_size, num_epochs, seed, lr,
         train_dataloader, valid_dataloader,
         lora_rank, lora_alpha, lora_dropout,
-        focal_gamma=2.0, focal_alpha=None):
+        eval_steps, save_steps, eval_strategy, save_strategy,
+        logging_steps, save_total_limit,
+        reporter, metric_for_best_model, greater_is_better):
 
     model = TokenClassificationModel(
         model_dir=model_dir,
-        num_clusters=2,
+        num_clusters=2,  # binary class 1/0
         lora_rank=lora_rank,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout
@@ -156,22 +155,22 @@ def train_cluster_classification(
     training_args = TrainingArguments(
         output_dir=checkpoints_dir,
         learning_rate=lr,
-        eval_strategy="steps",
-        save_strategy="steps",
-        eval_steps=1,
-        save_steps=1,
+        eval_strategy=eval_strategy,
+        save_strategy=save_strategy,
+        eval_steps=eval_steps,
+        save_steps=save_steps,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         num_train_epochs=num_epochs,
         logging_dir=logging_dir,
-        logging_steps=1,
-        save_total_limit=3,
+        logging_steps=logging_steps,
+        save_total_limit=save_total_limit,
         load_best_model_at_end=True,
         ddp_find_unused_parameters=False,
         seed=seed,
-        report_to="mlflow",
-        metric_for_best_model="accuracy",
-        greater_is_better=True,
+        report_to=reporter,
+        metric_for_best_model=metric_for_best_model,
+        greater_is_better=greater_is_better,
         fp16=torch.cuda.is_available()
     )
 
@@ -198,12 +197,12 @@ def train_cluster_classification(
     )
     trainer.train()
 
-    # 保存当前加载的模型（即最佳）
+    # save the best
     best_model_path = f"{checkpoints_dir}/best"
     # 如果是 LoRA 微调模型（PeftModel），用 save_pretrained 正确保存 adapter
     if isinstance(trainer.model.model, PeftModel):
         trainer.model.model.save_pretrained(best_model_path)
-        logger.info(f"LoRA adapter saved to: {best_model_path}")
+        logger.info(f"The best fine-tuned model saved to: {best_model_path}")
     else:
         logger.warning("The model is not a PeftModel. Skipping save_pretrained.")
 
