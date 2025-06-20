@@ -68,6 +68,7 @@ def process_raw_data(fasta_file, pkl_file):
             raw_data.append(example)
     return raw_data
 
+
 def get_clusters_num(raw_data):
     """
     Get the maximum number of clusters from the raw data.
@@ -165,7 +166,7 @@ def get_data_loader(split_dataset, data_collator, batch_size):
     return train_dataloader, valid_dataloader
 
 
-def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch_size, seed):
+def run(fasta_file, pkl_file, model_dir, tokenized_cache_path, test_ratio, batch_size, seed):
     set_seed(seed)  # for reproducibility
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
 
@@ -174,9 +175,9 @@ def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch
 
     dataset = Dataset.from_list(raw_data)
 
-    if os.path.exists(TOKENIZED_CACHE_PATH):
+    if os.path.exists(tokenized_cache_path):
         logger.info("Tokenization history found, loading to memory...")
-        tokenized_dataset = load_from_disk(TOKENIZED_CACHE_PATH)
+        tokenized_dataset = load_from_disk(tokenized_cache_path)
     else:
         tokenized_dataset = dataset.map(
             lambda x: encode_data(x, tokenizer),
@@ -185,7 +186,7 @@ def run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch
             desc="Tokenizing dataset"
         )
         logger.info("Tokenization completed, saving to disk...")
-        tokenized_dataset.save_to_disk(TOKENIZED_CACHE_PATH)
+        tokenized_dataset.save_to_disk(tokenized_cache_path)
 
     data_collator = DataCollatorWithPaddingForLabels(tokenizer=tokenizer)
     split_dataset = tokenized_dataset.train_test_split(test_size=test_ratio, seed=seed)
@@ -199,12 +200,12 @@ if __name__ == '__main__':
     fasta_file = r"/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
     pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/class_results.pkl"
     model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
-    TOKENIZED_CACHE_PATH = None
+    tokenized_cache_path = None
 
     # configs params
     seed = 3407
     test_ratio = 0.1
     batch_size = 8
 
-    run(fasta_file, pkl_file, model_dir, TOKENIZED_CACHE_PATH, test_ratio, batch_size, seed)
+    run(fasta_file, pkl_file, model_dir, tokenized_cache_path, test_ratio, batch_size, seed)
 

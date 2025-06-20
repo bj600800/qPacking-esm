@@ -26,4 +26,3 @@ training_args:
   reporter: mlflow
   metric_for_best_model: accuracy
   greater_is_better: True
-
