@@ -6,20 +6,25 @@ protein representations and enable interpretable thermostability effect predicti
 
 All params stored in experiment.yaml from experiments/. Config.py manages these yamls, and passes the params to predict.py. 
 ```
-├── logs/                # Log output directory (e.g., train.log, test.log)
-├── predict.py           # Inference script entry point
-├── README.md            # This file
-├── qpacking/            # Main project code package
-    ├── data_prepare/        # Data preprocessing utilities
-    ├── hydrocluster/        # Hydrophobic cluster identification and analysis
-    ├── models/              # Core DL modules: model, dataset, training, evaluation
-    └── utils/               # Utility functions: logging, visualization, etc.
-└── scripts/             # Execution scripts: training, testing, zero-shot inference
-    └── hyperparams/         # manage all hyperparams of qPacking fine-tuning
-        ├── experiment1.yaml     # experiment_1 params
-        └── config.py            # seperate data flow and code flow. Data flow manages data type and value.
-    └── train.py             # Let's training!
-
+qPacking/
+├── logs/                            # Training output directory for logs
+│
+├── predict.py                       # Entry point for inference (model prediction)
+│
+├── train.py                         # Training entry script (task-dependent launcher)
+│
+├── README.md                        # Project documentation
+│
+├── qpacking/                        # Main source code package
+│   ├── data_prepare/                # Data preprocessing utilities (download, clean, convert, etc.)
+│   ├── hydrocluster/                # Hydrophobic cluster identification and feature analysis
+│   ├── models/                      # Core deep learning modules (model, dataset, training, evaluation)
+│   └── utils/                       # Utility functions (logging, visualization, configuration helpers)
+│
+├── scripts/                         # Execution scripts (training, evaluation, inference)
+│   └── configs/                     # Centralized management of experiment hyperparameters
+│       ├── hydrophobic_binary.yaml  # Hyperparameter file for hydrophobic binary classification task
+│       └── config.py                # Decouples data flow from code flow: loads and validates parameters
 ```
 
 **Dependence:**
