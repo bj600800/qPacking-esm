@@ -44,12 +44,6 @@ pip install fair-esm (version=2.0.0)
 pip install melodia-py (version=0.1.4)
 ```
 
-**Download checkpoints:**
-
-ESM2-weight: https://huggingface.co/facebook/esm2_t36_3B_UR50D
-
-ESM2-contact-regression: https://dl.fbaipublicfiles.com/fair-esm/regression/esm2_t33_650M_UR50D-contact-regression.pt
-
 **Tools:**
 ```
 conda install -c conda-forge -c bioconda mmseqs2
@@ -59,6 +53,12 @@ pip install pdb-tools
 conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
+
+**Download checkpoints:**
+
+ESM2-weight: https://huggingface.co/facebook/esm2_t36_3B_UR50D
+
+ESM2-contact-regression: https://dl.fbaipublicfiles.com/fair-esm/regression/esm2_t33_650M_UR50D-contact-regression.pt
 
 ## Notice
 - Checkpoints and used-datasets are available in zenodo.
