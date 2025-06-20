@@ -108,7 +108,6 @@ class FocalLossTrainer(Trainer):
         loss = self.focal_loss(logits, labels)
         return (loss, outputs) if return_outputs else loss
 
-
 def compute_metrics(eval_preds):
     logits, labels = eval_preds
     predictions = np.argmax(logits, axis=-1)
@@ -140,7 +139,7 @@ def train_cluster_classification(
         batch_size, num_epochs, seed, lr,
         train_dataloader, valid_dataloader,
         lora_rank, lora_alpha, lora_dropout,
-        eval_steps, save_steps, eval_strategy, save_strategy,
+        eval_steps, save_steps, eval_strategy, save_strategy,logging_strategy,
         logging_steps, save_total_limit,
         reporter, metric_for_best_model, greater_is_better):
 
@@ -157,6 +156,7 @@ def train_cluster_classification(
         learning_rate=lr,
         eval_strategy=eval_strategy,
         save_strategy=save_strategy,
+        logging_strategy=logging_strategy,
         eval_steps=eval_steps,
         save_steps=save_steps,
         per_device_train_batch_size=batch_size,

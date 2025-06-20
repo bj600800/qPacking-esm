@@ -105,6 +105,7 @@ def hydrophobic_binary(config):
         "save_steps": config.training_args.save_steps,
         "eval_strategy": config.training_args.eval_strategy,
         "save_strategy": config.training_args.save_strategy,
+        "logging_strategy": config.training_args.logging_strategy,
         "logging_steps": config.training_args.logging_steps,
         "save_total_limit": config.training_args.save_total_limit,
         "reporter": config.training_args.reporter,

@@ -34,6 +34,7 @@ class TrainingArgsConfig:
     num_epochs: int
     eval_strategy: str
     save_strategy: str
+    logging_strategy: str
     eval_steps: int
     save_steps: int
     logging_steps: int
