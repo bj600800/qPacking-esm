@@ -14,7 +14,7 @@ lora:
 training_args:
   seed: 3407
   lr: 2.0e-5
-  num_clusters: 2
+  proj_dim: 128
   num_epochs: 2
   batch_size: 8
   test_ratio: 0.1
@@ -26,5 +26,5 @@ training_args:
   logging_steps: 1
   save_total_limit: 3
   reporter: mlflow
-  metric_for_best_model: accuracy
-  greater_is_better: True
+  metric_for_best_model: eval_loss
+  greater_is_better: False

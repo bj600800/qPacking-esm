@@ -104,8 +104,8 @@ class Analyzer:
         cite: https://doi.org/10.1006/jmbi.1998.1645
         :return: {res_id: PO} dictionary
         """
-        # visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
-        # input()
+        visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        input()
         hydro_res = G.nodes()
         contact = G.edges()
         N_contact = len(list(contact))
@@ -278,8 +278,8 @@ class Analyzer:
         logger.info(f"Starting {num_workers} producer threads and 1 consumer thread.")
 
         #TODO: Remove this debug block before production
-        # if os.path.exists(output_pkl_file):
-        #     os.remove(output_pkl_file)
+        if os.path.exists(output_pkl_file):
+            os.remove(output_pkl_file)
 
         #TODO: Remove this debug block before production
 
