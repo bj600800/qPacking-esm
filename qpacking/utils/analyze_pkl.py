@@ -124,7 +124,6 @@ def run_split(input_pkl):
         with open(new_pkl, "wb") as f:
             pickle.dump(new_feature, f)
 
-
 def plot_feature(load_existing_results):
     area = [sum(v['area'].values()) for k, v in load_existing_results.items()]
     plot_area(area, 'SASA Area')
@@ -140,3 +139,8 @@ def plot_feature(load_existing_results):
 
     centrality = [i for k, v in load_existing_results.items() for i in v['centrality'].values()]
     plot_area(centrality, 'centrality')
+
+
+if __name__ == '__main__':
+    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/80/80_class_results.pkl"
+    renum_class_pkl(pkl_file)

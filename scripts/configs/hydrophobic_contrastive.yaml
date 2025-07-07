@@ -4,7 +4,7 @@ path:
   logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
   tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/test/tokenized_cache
   fasta_file: /Users/douzhixin/Developer/qPacking/data/test/sequence.fasta
-  pkl_file: /Users/douzhixin/Developer/qPacking/data/test/class_results.pkl
+  pkl_file: /Users/douzhixin/Developer/qPacking/data/test/results_class.pkl
 
 lora:
   rank: 8

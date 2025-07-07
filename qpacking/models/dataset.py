@@ -31,102 +31,127 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True  # ensures deterministic behavior
     torch.backends.cudnn.benchmark = False  # disables auto-tuning for performance, ensuring reproducibility
 
+class DataEncoder:
+    def __init__(self, fasta_file, pkl_file, tokenizer, tokenized_cache_path, task):
+        self.fasta_path = fasta_file
+        self.pkl_file = pkl_file
+        self.tokenized_cache_path = tokenized_cache_path
+        self.task = task
+        self.tokenizer = tokenizer
 
-def load_seq(filepath):
-    sequences = {}
-    for record in SeqIO.parse(filepath, "fasta"):
-        sequences[record.id] = str(record.seq)
-    return sequences
-
-
-def process_raw_data(fasta_file, pkl_file):
-    """
-    load raw data from a fasta file and existing results from pkl file.
-    create a list of labels.
-
-
-    Args:
-        class_feature: input feature is hydrophobic cluster class label or not.
-        fasta_file: path str
-        pkl_file: path str
-
-    Returns:
-        raw_data: list of dicts, each dict contains 'id', 'sequence', and 'label'
-
-    """
-    
-    raw_data = []
-    sequences = load_seq(fasta_file)
-    pkl_data = load_existing_results(pkl_file)
-    for protein_name, feature in pkl_data.items():
-        if protein_name in sequences:
-            example = {
-                'id': protein_name,
-                'sequence': sequences[protein_name],
-                'label': {str(k): v for k, v in feature.items()}
-            }
-            raw_data.append(example)
-    return raw_data
+    def load_seq(self):
+        sequences = {}
+        for record in SeqIO.parse(self.fasta_path, "fasta"):
+            sequences[record.id] = str(record.seq)
+        return sequences
 
 
-def get_clusters_num(raw_data):
-    """
-    Get the maximum number of clusters from the raw data.
-    Args:
-        raw_data: list of dicts, each dict contains 'id', 'sequence', and 'label'
+    def format_raw_data(self, pkl_data):
+        sequences = self.load_seq()
+        format_data = []
+        for protein_name, feature in pkl_data.items():
+            if protein_name in sequences:
+                seq = sequences[protein_name]
+                labels = [0] * len(seq)  # Initialize all labels to 0
+                for k, v in feature.items():
+                    labels[k] = v
+                data = {
+                    'id': protein_name,
+                    'sequence': sequences[protein_name],
+                    'labels': labels
+                }
+                format_data.append(data)
+        return format_data
 
-    Returns:
-        num_clusters: int, number of clusters
-    """
-    if not raw_data:
-        return 0
+    @staticmethod
+    def encode_binary(x, tokenizer):
+        """
+        encode x with binary 1/0
+        Args:
+            x: {'id': str, 'sequence': str, 'label': dict}
+            tokenizer: EsmTokenizer
 
-    max_label = max({v for example in raw_data for k, v in example['label'].items() if v is not None})
+        Returns:
+            tokenized_input: dict with keys 'input_ids', 'attention_mask', 'labels'
 
-    return max_label + 1  # +1 because labels are 0-indexed, so the number of clusters is max_label + 1
+        """
+        # Tokenized
+        tokenized_input = tokenizer(x['sequence'],
+                                    return_attention_mask=True,
+                                    padding=False,
+                                    return_tensors=None)
+        labels = x['labels']
+        binary_labels = [1 if l > 0 else 0 for l in labels]
+        binary_labels = [-100] + binary_labels + [-100]  # add -100 for eos and cls tokens
+        tokenized_input['labels'] = binary_labels
+        return tokenized_input
 
-def encode_data(data, tokenizer):
-    """
-    use EsmTokenizer to encode the input data using batch encoding.
-    Args:
-        data: raw_data
-        tokenizer: str -> EsmTokenizer
+    @staticmethod
+    def encode_contrastive(x, tokenizer):
+        """
+        Encode x with labels: 0 for non-hydrophobic, 1-n for hydrophobic cluster numbers.
+        Args:
+            x: {'id': str, 'sequence': str, 'label': dict}
+            tokenizer: EsmTokenizer
 
-    Returns:
+        Returns:
+            tokenized_input: dict with keys 'input_ids', 'attention_mask', 'labels'
+        """
+        # Tokenized
+        tokenized_input = tokenizer(x['sequence'],
+                                    return_attention_mask=True,
+                                    padding=False,
+                                    return_tensors=None)
+        labels = x['labels']
+        labels = [-100] + labels + [-100]  # add -100 for eos and cls tokens
+        tokenized_input['labels'] = labels
+        return tokenized_input
 
-    """
-    # Tokenized
-    tokenized_input = tokenizer(data['sequence'],
-                                return_attention_mask=True,
-                                padding=False,
-                                return_tensors=None)
+    def tokenize(self, dataset):
+        """
+        Processes the raw data according to the specified task name and calls the appropriate encoding function.
+        Args:
+            dataset: huggingface-transformer dataset
 
-    label_dict = {int(k): v for k, v in data['label'].items()}
+        Returns: tokenized_dataset
 
-    hydrophobic_idx = [k for k, v in label_dict.items() if v is not None]
+        """
+        # select task-specific encoding function
+        supported_tasks = {"hydrophobic_binary", "hydrophobic_contrastive", "some_other_task"}
+        if self.task not in supported_tasks:
+            raise ValueError(f"Unsupported task: {self.task}. Supported tasks are: {supported_tasks}")
 
-    # init labels and attention_mask
-    input_len = len(tokenized_input['input_ids'])
-    labels = [-100] * input_len
-    # attention_mask = [0] * input_len
-
-    # update labels and attention_mask with label_dict and hydrophobic_idx
-    for i in range(1, input_len - 1):
-        seq_idx = i - 1 # sequence index starts from 0
-        if seq_idx in hydrophobic_idx:
-            labels[i] = 1
-            # attention_mask[i] = 1  # only unmask the hydrophobic positions in case of other positions affect the experiment explanation
+        if self.task == 'hydrophobic_binary':
+            encode_fn = self.encode_binary
+        elif self.task == 'hydrophobic_contrastive':
+            encode_fn = self.encode_contrastive
+        elif self.task == 'some_other_task':
+            raise NotImplementedError("some_other_task is not yet implemented.")
         else:
-            labels[i] = 0
-    # set <cls>, <eos> attention_mask to 1
-    # attention_mask[0] = 1  # <cls>
-    # attention_mask[-1] = 1  # <eos>
+            raise ValueError(f"Unsupported task: {self.task}")
 
-    tokenized_input['labels'] = labels
+        task_data_cache = os.path.join(self.tokenized_cache_path, self.task)
+        if os.path.exists(task_data_cache):
+            logger.info(f"Tokenization history found in {task_data_cache}, loading to memory...")
+            tokenized_dataset = load_from_disk(task_data_cache)
+        else:
+            tokenized_dataset = dataset.map(
+                lambda x, encode_fn=encode_fn: encode_fn(x, self.tokenizer),  # fix encode_fn to the current function
+                batched=False,
+                remove_columns=['id', 'sequence', 'labels'],  # replaced with input_ids, attention_mask, labels
+                desc="Tokenizing dataset"
+            )
+            logger.info(f"Tokenization completed, saving to {task_data_cache}")
+            tokenized_dataset.save_to_disk(task_data_cache)
+        return tokenized_dataset
 
-    # tokenized_input['attention_mask'] = attention_mask
 
-    return tokenized_input
+    def get_tokenized_dataset(self):
+        pkl_data = load_existing_results(self.pkl_file)
+        format_data = self.format_raw_data(pkl_data)
+        dataset = Dataset.from_list(format_data)
+        tokenized_dataset = self.tokenize(dataset)
+        return tokenized_dataset, len(dataset)
 
 
 class DataCollatorWithPaddingForLabels(DataCollatorWithPadding):
@@ -166,46 +191,30 @@ def get_data_loader(split_dataset, data_collator, batch_size):
     return train_dataloader, valid_dataloader
 
 
-def run(fasta_file, pkl_file, model_dir, tokenized_cache_path, test_ratio, batch_size, seed):
+def run(fasta_file, pkl_file, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed):
+    if not os.path.exists(fasta_file):
+        raise FileNotFoundError(f"FASTA file not found: {fasta_file}")
+    if not os.path.exists(pkl_file):
+        raise FileNotFoundError(f"PKL file not found: {pkl_file}")
+
     set_seed(seed)  # for reproducibility
-    tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
 
-    raw_data = process_raw_data(fasta_file, pkl_file)
-    max_cluster_num = get_clusters_num(raw_data)
-
-    dataset = Dataset.from_list(raw_data)
-
-    if os.path.exists(tokenized_cache_path):
-        logger.info("Tokenization history found, loading to memory...")
-        tokenized_dataset = load_from_disk(tokenized_cache_path)
-    else:
-        tokenized_dataset = dataset.map(
-            lambda x: encode_data(x, tokenizer),
-            batched=False,
-            remove_columns=['id', 'sequence', 'label'],  # processed data will not contain these columns from the original raw data.
-            desc="Tokenizing dataset"
-        )
-        logger.info("Tokenization completed, saving to disk...")
-        tokenized_dataset.save_to_disk(tokenized_cache_path)
+    try:
+        tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load tokenizer from {model_dir}: {e}")
 
     data_collator = DataCollatorWithPaddingForLabels(tokenizer=tokenizer)
+    data_processor = DataEncoder(fasta_file, pkl_file, tokenizer, tokenized_cache_path, task)
+    tokenized_dataset, len_dataset = data_processor.get_tokenized_dataset()
     split_dataset = tokenized_dataset.train_test_split(test_size=test_ratio, seed=seed)
     train_dataloader, valid_dataloader = get_data_loader(split_dataset, data_collator, batch_size)
 
-    return train_dataloader, valid_dataloader, max_cluster_num
+    logger.info(f"Total samples in dataset: {len_dataset}")
+    logger.info(f"Training set size: {len(split_dataset['train'])}, Validation set size: {len(split_dataset['test'])}")
+    logger.info(
+        f"Batch size: {batch_size}, "
+        f"Number of training batches: {len(train_dataloader)}, "
+        f"Number of validation batches: {len(valid_dataloader)}")
 
-
-
-if __name__ == '__main__':
-    fasta_file = r"/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
-    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/class_results.pkl"
-    model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
-    tokenized_cache_path = None
-
-    # configs params
-    seed = 3407
-    test_ratio = 0.1
-    batch_size = 8
-
-    run(fasta_file, pkl_file, model_dir, tokenized_cache_path, test_ratio, batch_size, seed)
-
+    return train_dataloader, valid_dataloader

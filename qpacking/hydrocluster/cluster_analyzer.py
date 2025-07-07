@@ -16,7 +16,6 @@ import pickle
 import concurrent.futures
 import multiprocessing
 import time
-import humanize
 
 from tqdm import tqdm
 from pathlib import Path
@@ -29,7 +28,7 @@ from Bio.PDB.DSSP import DSSP
 
 from biotite.structure import sasa, centroid
 from qpacking.hydrocluster import cluster_identifier
-from qpacking.utils import visualization
+# from qpacking.utils import visualization
 from qpacking.utils.logger import setup_log
 logger = setup_log(name=__name__, enable_file_log=False)
 
@@ -47,8 +46,7 @@ class Analyzer:
         class_feature = {}
         for res_id, _ in node_labels.items():
             res_id = int(res_id) - int(self.first_res_id)
-            class_feature[res_id] = i  # cluster index starts from 0, -100 stands for mask of non-cluster residues
-
+            class_feature[res_id] = i  # cluster index starts from 1, -100 stands for mask of non-cluster residues
         return class_feature
 
     def get_area(self, G):
@@ -58,8 +56,7 @@ class Analyzer:
             residue_mask = np.isin(self.structure.res_id, res_id)
             res_array = self.structure[residue_mask]
             res_id = int(res_id) - int(self.first_res_id)
-            area_feature[res_id] = sum(sasa(res_array))
-
+            area_feature[res_id] = float(sum(sasa(res_array)))
         return area_feature
 
     def get_degree(self, G):
@@ -68,7 +65,6 @@ class Analyzer:
         for node, degree in degree_dict.items():
             node = int(node) - int(self.first_res_id)
             degree_feature[node] = degree
-
         # visualization.draw_graph_interactive(G, "degree_graph.html")
         return degree_feature
 
@@ -104,8 +100,8 @@ class Analyzer:
         cite: https://doi.org/10.1006/jmbi.1998.1645
         :return: {res_id: PO} dictionary
         """
-        visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
-        input()
+        # visualization.show_hydrocluster_pymol(self.pdb_file, self.cluster_graphs)
+        # input()
         hydro_res = G.nodes()
         contact = G.edges()
         N_contact = len(list(contact))
@@ -137,7 +133,7 @@ class Analyzer:
 
         for i in range(len(res_list)):
             res_list[i] = int(res_list[i]) - int(self.first_res_id)
-            centrality_dict[res_list[i]] = N / distance_sums[i]
+            centrality_dict[res_list[i]] = float(N / distance_sums[i])
         return centrality_dict
 
 
@@ -151,7 +147,8 @@ class Analyzer:
                            'centrality': {}}
         try:
             for i, G in enumerate(self.cluster_graphs):
-                class_feature = self.get_class(G, i)
+                # i starts from 0, but cluster index starts from 1
+                class_feature = self.get_class(G, i + 1)
                 area_feature = self.get_area(G)
                 degree_feature = self.get_degree(G)
                 order_feature = self.get_packing_order(G)
@@ -165,7 +162,6 @@ class Analyzer:
                 struct_features['centrality'].update(centrality_feature)
             rsa_dict = self.get_rasa(packing_res)
             struct_features['rsa'] = rsa_dict
-
         except Exception as e:
             logger.warning(f"Error in calculating {self.pdb_file}: {e}")
             return False
@@ -200,7 +196,7 @@ class Analyzer:
             return {}
 
     @staticmethod
-    def file_writer(queue, output_file, buffer_size=10000):  # buffer size too small will not be enough for the last time writing.
+    def file_writer(queue, output_file, buffer_size=50000):  # buffer size too small will not be enough for the last time writing.
         """
         Consumer thread to write all results (new and old) to a file.
         Each buffer was written once for each result.
@@ -331,11 +327,14 @@ class Analyzer:
 
         time2 = time.time()
         time_cost = time2 - time1
-        time_str = humanize.naturaldelta(time_cost)
+        total_seconds = int(time_cost)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
 
         logger.info("Consumer thread closed safely.")
         logger.info(f"All threads closed and {len(pdb_files)} structure features saved to {output_pkl_file}")
-        logger.info(f"Time cost: {time_str}")
+        logger.info(f"Time cost: {hours:02d}:{minutes:02d}:{seconds:02d}")
 
         ## TEST: print the saved results in pkl file.
         # load_existing_results = Analyzer.load_existing_results(output_pkl_file)

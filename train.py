@@ -16,7 +16,7 @@ from qpacking.utils import logger
 logger = logger.setup_log(name=__name__)
 
 
-def hydrophobic_binary(config):
+def hydrophobic_binary(config, task):
     dataset_args = {
         "fasta_file": config.path.fasta_file,
         "pkl_file": config.path.pkl_file,
@@ -29,7 +29,7 @@ def hydrophobic_binary(config):
 
     # load data
     try:
-        train_dataloader, valid_dataloader, num_clusters = dataset.run(**dataset_args)
+        train_dataloader, valid_dataloader = dataset.run(**dataset_args, task=task)
     except Exception as e:
         logger.error("Failed to load dataset with dataset_args!")
         logger.error(str(e))
@@ -43,7 +43,7 @@ def hydrophobic_binary(config):
         "num_epochs": config.training_args.num_epochs,
         "seed": config.training_args.seed,
         "lr": config.training_args.lr,
-        "num_clusters": config.training_args.num_clusters,
+        "num_class": config.training_args.num_class,
         "train_dataloader": train_dataloader,
         "valid_dataloader": valid_dataloader,
         "lora_rank": config.lora.rank,
@@ -68,7 +68,7 @@ def hydrophobic_binary(config):
         logger.error(str(e))
         raise
 
-def hydrophobic_contrastive(config):
+def hydrophobic_contrastive(config, task):
     dataset_args = {
         "fasta_file": config.path.fasta_file,
         "pkl_file": config.path.pkl_file,
@@ -81,7 +81,7 @@ def hydrophobic_contrastive(config):
 
     # load data
     try:
-        train_dataloader, valid_dataloader, _ = dataset.run(**dataset_args)
+        train_dataloader, valid_dataloader = dataset.run(**dataset_args, task=task)
     except Exception as e:
         logger.error("Failed to load dataset with dataset_args!")
         logger.error(str(e))
@@ -132,7 +132,7 @@ def main():
         type=str,
         required=True,
         choices=['hydrophobic_binary', 'hydrophobic_contrastive'],
-        help="Training task selection: hydrophobic or degree"
+        help="Training task selection: [hydrophobic_binary, hydrophobic_contrastive]"
     )
 
     parser.add_argument(
@@ -150,10 +150,10 @@ def main():
     log = Config.ConfigLogger(config, task)
     log.log()
     if task == 'hydrophobic_binary':
-        hydrophobic_binary(config)
+        hydrophobic_binary(config, task=task)
 
     elif task == 'hydrophobic_contrastive':
-        hydrophobic_contrastive(config)
+        hydrophobic_contrastive(config, task=task)
     else:
         raise ValueError(f"Unknown task: {task}")
 

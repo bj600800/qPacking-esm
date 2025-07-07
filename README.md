@@ -24,14 +24,15 @@ qPacking/
 ├── scripts/                         # Execution scripts (training, evaluation, inference)
 │   └── configs/                     # Centralized management of experiment hyperparameters
 │       ├── hydrophobic_binary.yaml  # Hyperparameter file for hydrophobic binary classification task
-│       └── config.py                # Decouples data flow from code flow: loads and validates parameters
+│       └── Config.py                # Decouples data flow from code flow: loads and validates parameters
 ```
 
 **Dependence:**
 ```
 python=3.10
-conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  pytorch-cuda=11.8 -c pytorch -c nvidia
-pip install transformers
+(GPU) conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  pytorch-cuda=11.8 -c pytorch -c nvidia
+(CPU) conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 cpuonly -c pytorch
+pip install transformers==4.52.4
 pip install sympy==1.13.1
 pip install datasets
 pip install matplotlib
@@ -40,7 +41,7 @@ pip install peft
 pip install scikit-learn
 pip install mlflow
 pip install tqdm
-pip install fair-esm (version=2.0.0)
+### pip install fair-esm (version=2.0.0)
 pip install melodia-py (version=0.1.4)
 ```
 

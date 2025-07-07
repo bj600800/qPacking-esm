@@ -83,7 +83,7 @@ def compute_binary_metrics(eval_preds):
 
 def train_hydrophobic_binary_classification(
         model_dir, checkpoints_dir, logging_dir,
-        batch_size, num_epochs, seed, lr, num_clusters,
+        batch_size, num_epochs, seed, lr, num_class,
         train_dataloader, valid_dataloader,
         lora_rank, lora_alpha, lora_dropout,
         eval_steps, save_steps, eval_strategy, save_strategy,logging_strategy,
@@ -92,7 +92,7 @@ def train_hydrophobic_binary_classification(
 
     model = HydrophobicBinaryClassificationModel(
         model_dir=model_dir,
-        num_clusters=num_clusters,  # binary class: 1/0
+        num_class=num_class,  # binary class: 1/0
         lora_rank=lora_rank,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout

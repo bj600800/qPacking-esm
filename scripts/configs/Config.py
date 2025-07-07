@@ -49,7 +49,7 @@ class TrainingArgsHydrophobicConfig:
 
 @dataclass
 class TrainingArgsHydrophobicBinaryConfig(TrainingArgsHydrophobicConfig):
-    num_clusters: int
+    num_class: int
 
 @dataclass
 class TrainingArgsHydrophobicContrastiveConfig(TrainingArgsHydrophobicConfig):
@@ -69,7 +69,7 @@ class ConfigHydrophobicContrastive:
 
 
 @staticmethod
-def from_yaml(path: str, task: str) -> 'Config':
+def from_yaml(path: str, task: str):
     with open(path, 'r') as f:
         raw = yaml.safe_load(f)
     if task == "hydrophobic_binary":
@@ -125,7 +125,7 @@ class ConfigLogger:
 
     def _log_hydrophobic_binary(self):
         self.logger.info("[Hydrophobic-binary Task Specific Config]")
-        self.logger.info(f"num_clusters: {self.config.training_args.num_clusters}")
+        self.logger.info(f"num_class: {self.config.training_args.num_class}")
         pass
 
     def _log_hydrophobic_contrastive(self):
@@ -138,12 +138,3 @@ class ConfigLogger:
         # 例如：
         # self.logger.info(f"use_ensemble: {self.config.task_args.use_ensemble}")
         pass
-
-if __name__ == '__main__':
-    path = r"/Users/douzhixin/Developer/qPacking/code/scripts/configs/hydrophobic_binary.yaml"
-    with open(path, 'r') as f:
-        raw = yaml.safe_load(f)
-    for section, section_value in raw.items():
-        print(f"[{section}]")
-        for k, v in section_value.items():
-            print(f"  {k}: {v} ({type(v)})")
