@@ -4,9 +4,10 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/5/21
 
-# Description: Zero-shot prediction with esm2-650M adapted part of the official codes from esm github.
+# Description: template code. Zero-shot prediction with esm2 adapted part of the official codes from esm GitHub.
 # ------------------------------------------------------------------------------
 """
+import os
 from tqdm import tqdm
 import pandas as pd
 import torch
@@ -111,6 +112,12 @@ def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, 
         token_probs = get_token_probs_wt_marginals(model, inputs)
         df = score_mutations(df, sequence, token_probs, tokenizer, offset_idx, mutation_col, model_name)
 
+        # 设置显示上限（显示所有行和列）
+        pd.set_option("display.max_rows", None)
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.width", None)
+        pd.set_option("display.max_colwidth", None)
+        print(df.head(5))  # 打印前20行
     elif scoring_strategy == "masked-marginals":
         token_probs = get_token_probs_masked_marginals(model, tokenizer, input_ids)
         df = score_mutations(df, sequence, token_probs, tokenizer, offset_idx, mutation_col, model_name)
@@ -118,13 +125,13 @@ def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, 
     elif scoring_strategy == "pseudo-ppl":
         df = score_with_pseudo_ppl(df, sequence, model, tokenizer, offset_idx, mutation_col, model_name)
 
-    logger.info("Writing to file:", dms_output)
+    logger.info(f"Writing to file: {dms_output}")
     df.to_csv(dms_output, index=False)
 
 
 if __name__ == "__main__":
-    model_path = "/Users/douzhixin/Developer/qPacking/checkpoints/huggingface"
-    model_name = "esm2_t33_650M_UR50D"
+    model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
+    model_name = "esm2_t30_150M_UR50D"
     sequence = "HPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRVDAGQEQLGRRIHYSQNDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRLDRWEPELNEAIPNDERDTTMPAAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPLLRSALPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIAEIGASLIKHW"
     dms_input = "/Users/douzhixin/Developer/qPacking/data/benchmark/BLAT_ECOLX_Ranganathan2015_labeled.csv"
     offset_idx = 24

@@ -22,6 +22,7 @@ class PathConfig:
     tokenized_cache_path: str
     fasta_file: str
     pkl_file: str
+    model_src: str
 
 @dataclass
 class LoRAConfig:
@@ -33,16 +34,16 @@ class LoRAConfig:
 class TrainingArgsHydrophobicConfig:
     seed: int
     lr: float
+    num_epochs: int
     test_ratio: float
     batch_size: int
-    num_epochs: int
     eval_strategy: str
     save_strategy: str
+    save_steps: str
+    save_total_limit: int
     logging_strategy: str
     eval_steps: int
-    save_steps: int
     logging_steps: int
-    save_total_limit: int
     reporter: str
     metric_for_best_model: str
     greater_is_better: bool
@@ -67,8 +68,41 @@ class ConfigHydrophobicContrastive:
     lora: LoRAConfig
     training_args: TrainingArgsHydrophobicContrastiveConfig
 
+@dataclass
+class ConfigDegree:
+    path: PathConfig
+    lora: LoRAConfig
+    training_args: TrainingArgsHydrophobicConfig
 
-@staticmethod
+@dataclass
+class ConfigArea:
+    path: PathConfig
+    lora: LoRAConfig
+    training_args: TrainingArgsHydrophobicConfig
+
+@dataclass
+class ConfigRsa:
+    path: PathConfig
+    lora: LoRAConfig
+    training_args: TrainingArgsHydrophobicConfig
+
+@dataclass
+class ConfigOrder:
+    path: PathConfig
+    lora: LoRAConfig
+    training_args: TrainingArgsHydrophobicConfig
+
+@dataclass
+class ConfigCentrality:
+    path: PathConfig
+    lora: LoRAConfig
+    training_args: TrainingArgsHydrophobicConfig
+
+@dataclass
+class ConfigFitness:
+    path: PathConfig
+    training_args: TrainingArgsHydrophobicConfig
+
 def from_yaml(path: str, task: str):
     with open(path, 'r') as f:
         raw = yaml.safe_load(f)
@@ -83,6 +117,46 @@ def from_yaml(path: str, task: str):
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),
             training_args=TrainingArgsHydrophobicContrastiveConfig(**raw['training_args'])
+        )
+    elif task == "degree":
+        return ConfigDegree(
+            path=PathConfig(**raw['path']),
+            lora=LoRAConfig(**raw['lora']),
+            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
+        )
+
+    elif task == "area":
+        return ConfigArea(
+            path=PathConfig(**raw['path']),
+            lora=LoRAConfig(**raw['lora']),
+            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
+        )
+
+    elif task == "rsa":
+        return ConfigRsa(
+            path=PathConfig(**raw['path']),
+            lora=LoRAConfig(**raw['lora']),
+            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
+        )
+
+    elif task == "order":
+        return ConfigOrder(
+            path=PathConfig(**raw['path']),
+            lora=LoRAConfig(**raw['lora']),
+            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
+        )
+
+    elif task == "centrality":
+        return ConfigCentrality(
+            path=PathConfig(**raw['path']),
+            lora=LoRAConfig(**raw['lora']),
+            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
+        )
+
+    elif task == "fitness":
+        return ConfigFitness(
+            path=PathConfig(**raw['path']),
+            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
         )
     else:
         raise ValueError(f"Unsupported task type: {task}")
@@ -105,6 +179,16 @@ class ConfigLogger:
             self._log_hydrophobic_binary()
         elif self.task == "hydrophobic_contrastive":
             self._log_hydrophobic_contrastive()
+        elif self.task == "degree":
+            self._log_degree()
+        elif self.task == 'area':
+            self._log_area()
+        elif self.task == 'rsa':
+            self._log_rsa()
+        elif self.task == 'order':
+            self._log_order()
+        elif self.task == 'centrality':
+            self._log_centrality()
         else:
             self.logger.warning(f"Unknown task: {self.task}. Logging only common parameters.")
         self.logger.info(f"\n{'=' * 10} End of Config Summary {'=' * 10}")
@@ -119,22 +203,32 @@ class ConfigLogger:
         for k, v in vars(cfg.training_args).items():
             self.logger.info(f"{k}: {v}")
 
-        self.logger.info(f"{'='*10}[LoRA]{'='*10}")
-        for k, v in vars(cfg.lora).items():
-            self.logger.info(f"{k}: {v}")
+        if self.task != "fitness":
+            self.logger.info(f"{'='*10}[LoRA]{'='*10}")
+            for k, v in vars(cfg.lora).items():
+                self.logger.info(f"{k}: {v}")
 
     def _log_hydrophobic_binary(self):
         self.logger.info("[Hydrophobic-binary Task Specific Config]")
         self.logger.info(f"num_class: {self.config.training_args.num_class}")
-        pass
+
 
     def _log_hydrophobic_contrastive(self):
         self.logger.info("[Hydrophobic-contrastive Task Specific Config]")
         self.logger.info(f"proj_dim: {self.config.training_args.proj_dim}")
+
+
+    def _log_degree(self):
         pass
 
-    def _log_stability_prediction(self):
-        self.logger.info("[Stability Prediction Task Specific Config]")
-        # 例如：
-        # self.logger.info(f"use_ensemble: {self.config.task_args.use_ensemble}")
+    def _log_area(self):
+        pass
+
+    def _log_rsa(self):
+        pass
+
+    def _log_order(self):
+        pass
+
+    def _log_centrality(self):
         pass

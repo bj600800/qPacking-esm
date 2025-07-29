@@ -43,6 +43,7 @@ pip install mlflow
 pip install tqdm
 ### pip install fair-esm (version=2.0.0)
 pip install melodia-py (version=0.1.4)
+pip install umap-learn
 ```
 
 **Tools:**

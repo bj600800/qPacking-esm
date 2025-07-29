@@ -7,9 +7,11 @@
 # Description: train qPacking
 # ------------------------------------------------------------------------------
 """
+import os
 import argparse
 from qpacking.models import dataset
-from qpacking.models.setup_train import train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model
+from qpacking.models.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
+                                         train_token_regression, train_fitness_regression_head)
 from scripts.configs import Config
 from qpacking.utils import logger
 
@@ -29,7 +31,7 @@ def hydrophobic_binary(config, task):
 
     # load data
     try:
-        train_dataloader, valid_dataloader = dataset.run(**dataset_args, task=task)
+        train_dataloader, valid_dataloader, tokenizer = dataset.run_structure_encoder(**dataset_args, task=task)
     except Exception as e:
         logger.error("Failed to load dataset with dataset_args!")
         logger.error(str(e))
@@ -37,7 +39,7 @@ def hydrophobic_binary(config, task):
 
     model_args = {
         "model_dir": config.path.model_dir,
-        "checkpoints_dir": config.path.checkpoints_dir,
+        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task),
         "logging_dir": config.path.logging_dir,
         "batch_size": config.training_args.batch_size,
         "num_epochs": config.training_args.num_epochs,
@@ -50,19 +52,19 @@ def hydrophobic_binary(config, task):
         "lora_alpha": config.lora.alpha,
         "lora_dropout": config.lora.dropout,
         "eval_steps": config.training_args.eval_steps,
-        "save_steps": config.training_args.save_steps,
         "eval_strategy": config.training_args.eval_strategy,
+        "save_total_limit": config.training_args.save_total_limit,
+        "save_steps": config.training_args.save_steps,
         "save_strategy": config.training_args.save_strategy,
         "logging_strategy": config.training_args.logging_strategy,
         "logging_steps": config.training_args.logging_steps,
-        "save_total_limit": config.training_args.save_total_limit,
         "reporter": config.training_args.reporter,
         "metric_for_best_model": config.training_args.metric_for_best_model,
         "greater_is_better": config.training_args.greater_is_better
     }
 
     try:
-        train_hydrophobic_binary_classification(**model_args)
+        train_hydrophobic_binary_classification(**model_args, tokenizer=tokenizer, task=task)
     except TypeError as e:
         logger.error("Failed to start training — argument mismatch!")
         logger.error(str(e))
@@ -81,7 +83,7 @@ def hydrophobic_contrastive(config, task):
 
     # load data
     try:
-        train_dataloader, valid_dataloader = dataset.run(**dataset_args, task=task)
+        train_dataloader, valid_dataloader, tokenizer = dataset.run_structure_encoder(**dataset_args, task=task)
     except Exception as e:
         logger.error("Failed to load dataset with dataset_args!")
         logger.error(str(e))
@@ -89,7 +91,7 @@ def hydrophobic_contrastive(config, task):
 
     model_args = {
         "model_dir": config.path.model_dir,
-        "checkpoints_dir": config.path.checkpoints_dir,
+        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task),
         "logging_dir": config.path.logging_dir,
         "batch_size": config.training_args.batch_size,
         "num_epochs": config.training_args.num_epochs,
@@ -103,26 +105,121 @@ def hydrophobic_contrastive(config, task):
         "lora_dropout": config.lora.dropout,
         "eval_steps": config.training_args.eval_steps,
         "save_steps": config.training_args.save_steps,
+        "save_total_limit": config.training_args.save_total_limit,
         "eval_strategy": config.training_args.eval_strategy,
         "save_strategy": config.training_args.save_strategy,
         "logging_strategy": config.training_args.logging_strategy,
         "logging_steps": config.training_args.logging_steps,
-        "save_total_limit": config.training_args.save_total_limit,
         "reporter": config.training_args.reporter,
         "metric_for_best_model": config.training_args.metric_for_best_model,
         "greater_is_better": config.training_args.greater_is_better
     }
 
     try:
-        train_hydrophobic_contrastive_model(**model_args)
+        train_hydrophobic_contrastive_model(**model_args, tokenizer=tokenizer, task=task)
     except TypeError as e:
         logger.error("Failed to start training — argument mismatch!")
         logger.error(str(e))
         raise
 
 
-def degree_class():
-    pass
+def token_regression(config, task):
+    dataset_args = {
+        "fasta_file": config.path.fasta_file,
+        "pkl_file": config.path.pkl_file,
+        "model_dir": config.path.model_dir,
+        "tokenized_cache_path": config.path.tokenized_cache_path,
+        "test_ratio": config.training_args.test_ratio,
+        "batch_size": config.training_args.batch_size,
+        "seed": config.training_args.seed,
+    }
+
+    # load data
+    try:
+        train_dataloader, valid_dataloader, tokenizer = dataset.run_structure_encoder(**dataset_args, task=task)
+    except Exception as e:
+        logger.error("Failed to load dataset with dataset_args!")
+        logger.error(str(e))
+        raise
+
+    model_args = {
+        "model_dir": config.path.model_dir,
+        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task),
+        "logging_dir": config.path.logging_dir,
+        "batch_size": config.training_args.batch_size,
+        "num_epochs": config.training_args.num_epochs,
+        "seed": config.training_args.seed,
+        "lr": config.training_args.lr,
+        "train_dataloader": train_dataloader,
+        "valid_dataloader": valid_dataloader,
+        "lora_rank": config.lora.rank,
+        "lora_alpha": config.lora.alpha,
+        "lora_dropout": config.lora.dropout,
+        "eval_steps": config.training_args.eval_steps,
+        "save_steps": config.training_args.save_steps,
+        "save_total_limit": config.training_args.save_total_limit,
+        "eval_strategy": config.training_args.eval_strategy,
+        "save_strategy": config.training_args.save_strategy,
+        "logging_strategy": config.training_args.logging_strategy,
+        "logging_steps": config.training_args.logging_steps,
+        "reporter": config.training_args.reporter,
+        "metric_for_best_model": config.training_args.metric_for_best_model,
+        "greater_is_better": config.training_args.greater_is_better
+    }
+
+    try:
+        train_token_regression(**model_args, tokenizer=tokenizer, task=task)
+    except TypeError as e:
+        logger.error("Failed to start training — argument mismatch!")
+        logger.error(str(e))
+        raise
+
+def fitness_regression(config, task):
+    dataset_args = {
+        "model_dir": config.path.fasta_file,
+        "pkl_file": config.path.pkl_file,
+        "tokenized_cache_path": config.path.tokenized_cache_path,
+        "test_ratio": config.training_args.test_ratio,
+        "seed": config.training_args.seed,
+        "batch_size": config.training_args.batch_size
+    }
+
+    # load data
+    try:
+        train_dataloader, valid_dataloader, tokenizer = dataset.run_fitness_data(**dataset_args)
+    except Exception as e:
+        logger.error("Failed to load dataset with dataset_args!")
+        logger.error(str(e))
+        raise
+    model_args = {
+        "model_dir": config.path.model_dir,
+        "model_src": config.path.model_src,
+        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task),
+        "logging_dir": config.path.logging_dir,
+        "batch_size": config.training_args.batch_size,
+        "num_epochs": config.training_args.num_epochs,
+        "seed": config.training_args.seed,
+        "lr": config.training_args.lr,
+        "train_dataloader": train_dataloader,
+        "valid_dataloader": valid_dataloader,
+        "eval_steps": config.training_args.eval_steps,
+        "save_steps": config.training_args.save_steps,
+        "save_total_limit": config.training_args.save_total_limit,
+        "eval_strategy": config.training_args.eval_strategy,
+        "save_strategy": config.training_args.save_strategy,
+        "logging_strategy": config.training_args.logging_strategy,
+        "logging_steps": config.training_args.logging_steps,
+        "reporter": config.training_args.reporter,
+        "metric_for_best_model": config.training_args.metric_for_best_model,
+        "greater_is_better": config.training_args.greater_is_better
+    }
+
+    try:
+        train_fitness_regression_head(**model_args, tokenizer=tokenizer)
+    except TypeError as e:
+        logger.error("Failed to start training — argument mismatch!")
+        logger.error(str(e))
+        raise
 
 
 def main():
@@ -131,7 +228,8 @@ def main():
         '--task',
         type=str,
         required=True,
-        choices=['hydrophobic_binary', 'hydrophobic_contrastive'],
+        choices=['hydrophobic_binary', 'hydrophobic_contrastive', 'degree', 'area',
+                 'rsa', 'order', 'centrality', 'fitness'],
         help="Training task selection: [hydrophobic_binary, hydrophobic_contrastive]"
     )
 
@@ -154,6 +252,25 @@ def main():
 
     elif task == 'hydrophobic_contrastive':
         hydrophobic_contrastive(config, task=task)
+
+    elif task == 'degree':
+        token_regression(config, task=task)
+
+    elif task == 'area':
+        token_regression(config, task=task)
+
+    elif task == 'rsa':
+        token_regression(config, task=task)
+
+    elif task == 'order':
+        token_regression(config, task=task)
+
+    elif task == 'centrality':
+        token_regression(config, task=task)
+
+    elif task == 'fitness':
+        fitness_regression(config, task=task)
+
     else:
         raise ValueError(f"Unknown task: {task}")
 

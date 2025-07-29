@@ -11,10 +11,14 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from transformers import EsmModel
-from peft import PeftModel, PeftConfig, get_peft_model, LoraConfig
-from transformers.modeling_outputs import TokenClassifierOutput
+from transformers.modeling_outputs import ModelOutput
+from dataclasses import dataclass
+from peft import get_peft_model, LoraConfig, PeftModel, PeftConfig
+from transformers.modeling_outputs import TokenClassifierOutput, SequenceClassifierOutput
 import torch.nn as nn
+from torch.nn import MSELoss
 from qpacking.utils import logger
+
 
 logger = logger.setup_log(name=__name__)
 
@@ -47,9 +51,9 @@ def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
         model
     """
     model = EsmModel.from_pretrained(model_dir,
+                                     # weights_only=True,
                                      torch_dtype=torch.float32,
                                      add_pooling_layer=False)
-
     # model.gradient_checkpointing_enable()  # reduce the number of stored activations
     model.enable_input_require_grads()  # allow lora update
 
@@ -67,8 +71,6 @@ def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
     )
 
     model = get_peft_model(model, config)
-
-    # print_trainable_parameters(model)
 
     return model
 
@@ -125,37 +127,6 @@ class FocalLoss(nn.Module):
             return loss.sum()
         else:
             return loss
-
-class HydrophobicBinaryClassificationModel(nn.Module):
-    def __init__(self, model_dir, num_class, lora_rank, lora_alpha, lora_dropout):
-        super().__init__()
-        self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
-        self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(self.model.config.hidden_size, num_class)
-
-    def forward(self, input_ids, attention_mask, labels=None):
-        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = self.dropout(outputs.last_hidden_state)  # [batch, seq_len, hidden=1280]
-        logits = self.classifier(hidden_states)
-
-        loss = None
-        if labels is not None:
-            loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
-            # reshape to [B*L, C] vs [B*L]
-            loss = loss_fn(logits.view(-1, 2), labels.view(-1))
-
-        return TokenClassifierOutput(
-            loss=loss,
-            logits=logits
-        )
-
-    def save_pretrained(self, save_directory, **kwargs):
-        """
-        Allow Trainer to call model.save_pretrained() directly.
-        Delegates saving to the underlying backbone model.
-        """
-        self.model.save_pretrained(save_directory, **kwargs)
-
 
 def tokenwise_supervised_contrastive_loss_batch(proj_emb, labels, attention_mask=None, temperature=0.07):
     """
@@ -246,7 +217,6 @@ def tokenwise_supervised_contrastive_loss_batch(proj_emb, labels, attention_mask
     loss_batch = total_loss / valid_seq_count if valid_seq_count > 0 else torch.tensor(0.0, device=device)
     return loss_batch.unsqueeze(0)
 
-
 class HydrophobicContrastiveModel(nn.Module):
     def __init__(self, model_dir, lora_rank, lora_alpha, lora_dropout, proj_dim):
         super().__init__()
@@ -271,57 +241,205 @@ class HydrophobicContrastiveModel(nn.Module):
             attentions=outputs.attentions if hasattr(outputs, "attentions") else None,
         )
 
-    def save_pretrained(self, save_directory, **kwargs):
-        """
-        Allow Trainer to call model.save_pretrained() directly.
-        Delegates saving to the underlying backbone model.
-        """
-        self.model.save_pretrained(save_directory, **kwargs)
+class TokenClassificationModel(nn.Module):
+    def __init__(self, model_dir, num_class, lora_rank, lora_alpha, lora_dropout):
+        super().__init__()
+        self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
+        self.dropout = nn.Dropout(0.1)
+        self.classifier = nn.Linear(self.model.config.hidden_size, num_class)
+        self.loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
 
+    def forward(self, input_ids, attention_mask=None, labels=None):
+        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        hidden_states = self.dropout(outputs.last_hidden_state)
+        logits = self.classifier(hidden_states)
+
+        loss = None
+        if labels is not None:
+            loss = self.loss_fn(logits.view(-1, logits.size(-1)), labels.view(-1))
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits
+        )
+
+class TokenRegressionModel(nn.Module):
+    def __init__(self, model_dir, lora_rank, lora_alpha, lora_dropout):
+        super().__init__()
+        self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
+        self.dropout = nn.Dropout(0.1)
+        self.regressor = nn.Linear(self.model.config.hidden_size, 1)  # 每个token一个实数
+        self.loss_fn = MSELoss(reduction="mean")
+
+    def forward(self, input_ids, attention_mask=None, labels=None):
+        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        hidden_states = self.dropout(outputs.last_hidden_state)
+        logits = self.regressor(hidden_states).squeeze(-1)  # shape: (batch_size, seq_len)
+
+        loss = None
+        if labels is not None:
+            active_mask = labels != -100
+            active_logits = logits[active_mask]
+            active_labels = labels[active_mask].float()
+            loss = self.loss_fn(active_logits, active_labels)
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits  # shape: (batch_size, seq_len)
+        )
+
+
+class TokenRegressionWeightedModel(nn.Module):
+    def __init__(self, model_dir, lora_rank, lora_alpha, lora_dropout):
+        super().__init__()
+        self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
+        self.dropout = nn.Dropout(0.1)
+        self.regressor = nn.Linear(self.model.config.hidden_size, 1)  # 每个 token 一个实数
+
+    def forward(self, input_ids, attention_mask=None, labels=None):
+        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        hidden_states = self.dropout(outputs.last_hidden_state)
+        logits = self.regressor(hidden_states).squeeze(-1)  # shape: (batch_size, seq_len)
+
+        loss = None
+        if labels is not None:
+            active_mask = labels != -100
+            active_logits = logits[active_mask]
+            active_labels = labels[active_mask].float()
+
+            mean_label = active_labels.mean() + 1e-6
+            weights = active_labels / mean_label  # focus on the bigger labels
+
+            loss = torch.mean(weights * (active_logits - active_labels) ** 2)
+
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits  # shape: (batch_size, seq_len)
+        )
+
+
+@dataclass
+class RegressionOutput(ModelOutput):
+    loss: Optional[torch.FloatTensor] = None
+    prediction: torch.FloatTensor = None
+
+
+class FitnessRegressionModel(nn.Module):
+    def __init__(self, model_dir, model_src, unfreeze_last_n=2):
+        super().__init__()
+        if model_src == 'official':
+            encoder = EsmModel.from_pretrained(model_dir, add_pooling_layer=False)
+            model_prefix = "encoder.layer"
+        elif model_src == 'finetuned':
+            peft_config = PeftConfig.from_pretrained(model_dir)
+            model_tuned_encoder = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
+            encoder = PeftModel.from_pretrained(model_tuned_encoder, model_dir)
+            model_prefix = "base_model.model.encoder.layer"
+        else:
+            raise ValueError(f"Unsupported model source: {model_src}. Use 'official' or 'finetuned'.")
+
+        self.model = encoder
+        hidden_size = self.model.config.hidden_size
+        self.dropout = nn.Dropout(0.1)
+        self.regressor = nn.Linear(hidden_size, 1)  # 输出一个实数值
+        self.loss_fn = MSELoss(reduction="mean")
+        # # 冻结 model，仅训练 regressor
+        # for param in self.model.parameters():
+        #     param.requires_grad = False
+        # 自动检测层数并解冻最后 n 层
+        if unfreeze_last_n > 0:
+            layer_nums = set()
+            for name, _ in self.model.named_parameters():
+                if model_prefix in name:
+                    try:
+                        layer_id = int(name.split(model_prefix + ".")[1].split(".")[0])
+                        layer_nums.add(layer_id)
+                    except:
+                        continue
+
+            if not layer_nums:
+                print("❌ 没有找到匹配的 encoder 层名，检查 encoder_prefix 是否正确。")
+            else:
+                total_layers = max(layer_nums) + 1  # 层数是从 0 开始的
+                target_layers = list(range(total_layers - unfreeze_last_n, total_layers))
+                print(f"🧠 模型总共 {total_layers} 层，将解冻最后 {unfreeze_last_n} 层: {target_layers}")
+
+                matched_count = 0
+                for name, param in self.model.named_parameters():
+                    if any(f"{model_prefix}.{i}." in name for i in target_layers):
+                        param.requires_grad = True
+                        matched_count += 1
+                        print(f"✅ Unfroze: {name}")
+                    else:
+                        param.requires_grad = False
+
+                print(f"\n✅ 解冻完成，共解冻 {matched_count} 个参数项。")
+
+        else:
+            # 全冻结
+            for _, param in self.model.named_parameters():
+                param.requires_grad = False
+
+    def forward(self, wt_input_ids, wt_attention_mask, mut_input_ids, mut_attention_mask, labels=None):
+        # 获取 wild-type 和 mutant 的 CLS 表达
+        wt_out = self.model(input_ids=wt_input_ids, attention_mask=wt_attention_mask).last_hidden_state[:, 0]
+        mut_out = self.model(input_ids=mut_input_ids, attention_mask=mut_attention_mask).last_hidden_state[:, 0]
+
+        # 差向量
+        diff = mut_out - wt_out
+        out = self.dropout(diff)
+        prediction = self.regressor(out).squeeze(-1)  # shape: (B,)
+
+        loss = None
+        if labels is not None:
+            loss = self.loss_fn(prediction, labels)
+
+        return RegressionOutput(loss=loss, prediction=prediction)
 
 if __name__ == '__main__':
-    from transformers import EsmTokenizer
-    import torch
+    from transformers import EsmTokenizer, EsmModel
+    from peft import PeftModel, PeftConfig
+    # --------------------------
+    # 加载模型路径（替换为你的路径）
+    # --------------------------
+    best_model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"  # 替换为你的 LoRA 模型目录
+    peft_config = PeftConfig.from_pretrained(best_model_path)
 
-    model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t33_650M_UR50D"
-    # 用ESM对应的蛋白质字母表初始化tokenizer（模拟真实序列用）
-    tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
+    # --------------------------
+    # 1. 加载未微调模型
+    # --------------------------
+    model_base = FitnessRegressionModel(best_model_path, 'official')
+    model_base.eval()
 
-    # 模拟2条蛋白质序列
-    sequences = [
-        "MKT",
-        "VLS"
-    ]
+    # --------------------------
+    # 2. 加载微调后的模型（PEFT）
+    # --------------------------
+    model_tuned = FitnessRegressionModel(best_model_path, 'finetuned')
+    model_tuned.eval()
 
-    # 将序列编码成input_ids、attention_mask
-    encoded = tokenizer(sequences, padding=True, return_tensors="pt")
-    input_ids = encoded["input_ids"]  # [B, L]
-    print('input_ids: ', input_ids)
-    attention_mask = encoded["attention_mask"]  # [B, L]
-    print('attention_mask: ', attention_mask.shape)
-    # 为每个token生成随机簇标签 (0表示非簇 ，1~2为不同簇)
-    labels = torch.randint(0, 3, input_ids.shape)  # [B, L]
-    labels[0, 0], labels[0, -1], labels[1, 0], labels[-1, -1] = [-100] * 4
-    print('labels: ', labels)
-    # ====== 创建模型 ======
-    model = HydrophobicContrastiveModel(
-        model_dir=model_dir,
-        lora_rank=4,
-        lora_alpha=8,
-        lora_dropout=0.05,
-        proj_dim=64,
-    )
+    # --------------------------
+    # 准备模拟输入（B=2, L=512）
+    # --------------------------
+    batch_size = 2
+    seq_len = 512
+    model_base_encoder = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
+    vocab_size = model_base_encoder.config.vocab_size  # ESM vocab size
 
-    # ====== 前向传播 ======
-    model.train()
-    output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    dummy_input = {
+        'wt_input_ids': torch.randint(0, vocab_size, (batch_size, seq_len)),
+        'wt_attention_mask': torch.ones((batch_size, seq_len), dtype=torch.long),
+        'mut_input_ids': torch.randint(0, vocab_size, (batch_size, seq_len)),
+        'mut_attention_mask': torch.ones((batch_size, seq_len), dtype=torch.long),
+    }
 
-    print("Loss:", output.loss.item())
-
-    # ====== 检查能否正常反向传播 ======
-    output.loss.backward()
-    print("Backward pass successful!")
-
+    # --------------------------
+    # 验证 forward 传播
+    # --------------------------
+    with torch.no_grad():
+        base_out = model_base(**dummy_input)
+        tuned_out = model_tuned(**dummy_input)
+        print(f"未微调模型输出: {base_out}")  # torch.Size([2])
+        print(f"微调后模型输出: {tuned_out}")  # torch.Size([2])
 
 
 
