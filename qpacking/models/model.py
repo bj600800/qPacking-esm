@@ -343,9 +343,7 @@ class FitnessRegressionModel(nn.Module):
         self.dropout = nn.Dropout(0.1)
         self.regressor = nn.Linear(hidden_size, 1)  # 输出一个实数值
         self.loss_fn = MSELoss(reduction="mean")
-        # # 冻结 model，仅训练 regressor
-        # for param in self.model.parameters():
-        #     param.requires_grad = False
+
         # 自动检测层数并解冻最后 n 层
         if unfreeze_last_n > 0:
             layer_nums = set()

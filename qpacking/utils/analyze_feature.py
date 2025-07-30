@@ -143,25 +143,25 @@ def run_split(input_pkl):
 
 
 def plot_feature(load_existing_results):
-    area = [i for k, v in load_existing_results.items() for i in v['area'].values()]
-    plot_regression(area, 'SASA Area')
-    input()
+    # area = [i for k, v in load_existing_results.items() for i in v['area'].values()]
+    # plot_regression(area, 'SASA Area')
+    # input()
 
-    degree = [i for k, v in load_existing_results.items() for i in v['degree'].values()]
+    # degree = [i for k, v in load_existing_results.items() for i in v['degree'].values()]
     # plot_regression(degree, 'Degree')
     # input()
     rsa = [i for k, v in load_existing_results.items() for i in v['rsa'].values()]
-    # plot_regression(rsa, 'rSAS')
-    # input()
+    plot_regression(rsa, 'rSAS')
+    input()
     order = [i for k, v in load_existing_results.items() for i in v['order'].values()]
     # plot_regression(order, 'Packing order')
     # input()
     centrality = [i for k, v in load_existing_results.items() for i in v['centrality'].values()]
-    plot_regression(centrality, 'centrality')
+    # plot_regression(centrality, 'centrality')
 
 
 if __name__ == '__main__':
-    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/80/80_results.pkl"
+    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/70/70_results.pkl"
     data = load_existing_results(pkl_file)
     plot_feature(data)
     # run_split(pkl_file)

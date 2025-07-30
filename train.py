@@ -191,10 +191,16 @@ def fitness_regression(config, task):
         logger.error("Failed to load dataset with dataset_args!")
         logger.error(str(e))
         raise
+
+    if config.path.model_src == "official":
+        base_model_name = os.path.basename(config.path.model_dir)
+    else:
+        base_model_name = os.path.basename(os.path.dirname(config.path.model_dir))
+
     model_args = {
         "model_dir": config.path.model_dir,
         "model_src": config.path.model_src,
-        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task),
+        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task+'/'+base_model_name),
         "logging_dir": config.path.logging_dir,
         "batch_size": config.training_args.batch_size,
         "num_epochs": config.training_args.num_epochs,

@@ -383,6 +383,11 @@ def train_fitness_regression_head(model_dir, model_src,
                                   train_dataloader, valid_dataloader, tokenizer):
 
     model = FitnessRegressionModel(model_dir, model_src)
+    if model_src == "official":
+        load_best_model_at_end = False
+    else:
+        load_best_model_at_end = True
+
     training_args = TrainingArguments(
         output_dir=checkpoints_dir,
         learning_rate=lr,
@@ -397,7 +402,7 @@ def train_fitness_regression_head(model_dir, model_src,
         num_train_epochs=num_epochs,
         logging_dir=logging_dir,
         logging_steps=logging_steps,
-        load_best_model_at_end=True,
+        load_best_model_at_end=load_best_model_at_end,
         ddp_find_unused_parameters=False,
         seed=seed,
         report_to=reporter,
@@ -405,16 +410,25 @@ def train_fitness_regression_head(model_dir, model_src,
         greater_is_better=greater_is_better,
         fp16=torch.cuda.is_available(),
     )
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataloader.dataset,
-        eval_dataset=valid_dataloader.dataset,
-        compute_metrics=compute_regression_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
-                   SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
-    )
+    if model_src == "official":
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataloader.dataset,
+            eval_dataset=valid_dataloader.dataset,
+            compute_metrics=compute_regression_metrics,
+            callbacks=[SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
+        )
+    else:
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataloader.dataset,
+            eval_dataset=valid_dataloader.dataset,
+            compute_metrics=compute_regression_metrics,
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
+                       SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
+        )
     trainer.train()
 
     # Save the best model after training
