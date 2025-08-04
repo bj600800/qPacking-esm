@@ -2,8 +2,8 @@ path:
   # Input
   model_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/80/20250722_area_esm2-150_80_v1/best
   model_src: finetuned
-  # model_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D
-  # model_src: official
+  #model_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D
+  #model_src: official
   pkl_file: /Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss.pkl
   fasta_file: /Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss.fasta
 
@@ -13,6 +13,9 @@ path:
   tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss_tokenized_cache
 
 training_args:
+  unfreeze_last_n: 1
+  emb_src: pos
+
   seed: 3407
   lr: 2.0e-5
   num_epochs: 20
@@ -20,11 +23,13 @@ training_args:
   test_ratio: 0.2
   eval_strategy: steps
   logging_strategy: steps
-  eval_steps: 100
-  save_steps: 100
+  eval_steps: 200
+  save_steps: 200
   save_strategy: steps
   save_total_limit: 3
   logging_steps: 1
   reporter: mlflow
-  metric_for_best_model: MSE
-  greater_is_better: False
+  metric_for_best_model: Spearman
+  greater_is_better: True
+
+

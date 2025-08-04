@@ -7,8 +7,12 @@
 # Description: train qPacking
 # ------------------------------------------------------------------------------
 """
+
 import os
 import argparse
+import mlflow
+from datetime import datetime
+
 from qpacking.models import dataset
 from qpacking.models.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
                                          train_token_regression, train_fitness_regression_head)
@@ -187,6 +191,7 @@ def fitness_regression(config, task):
     # load data
     try:
         train_dataloader, valid_dataloader, tokenizer = dataset.run_fitness_data(**dataset_args)
+
     except Exception as e:
         logger.error("Failed to load dataset with dataset_args!")
         logger.error(str(e))
@@ -200,6 +205,8 @@ def fitness_regression(config, task):
     model_args = {
         "model_dir": config.path.model_dir,
         "model_src": config.path.model_src,
+        "unfreeze_last_n": config.training_args.unfreeze_last_n,
+        "emb_src": config.training_args.emb_src,
         "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task+'/'+base_model_name),
         "logging_dir": config.path.logging_dir,
         "batch_size": config.training_args.batch_size,
@@ -226,6 +233,38 @@ def fitness_regression(config, task):
         logger.error("Failed to start training — argument mismatch!")
         logger.error(str(e))
         raise
+
+def create_fitness_mlflow_experiment(config, task):
+    """
+    Create an MLflow experiment for the given task.
+    """
+    model_src = config.path.model_src
+    pkl_name = os.path.basename(config.path.pkl_file).split('.')[0]
+    unfrozen_layers = config.training_args.unfreeze_last_n
+    emb_src = config.training_args.emb_src
+    if model_src == "official":
+        base_model_name = os.path.basename(config.path.model_dir)
+    else:
+        base_model_name = os.path.basename(os.path.dirname(config.path.model_dir))
+
+    # 组装实验名
+    experiment_name = f"{task}_{base_model_name}_{pkl_name}"
+    try:
+        mlflow.set_experiment(experiment_name)
+        logger.info(f"MLflow experiment set to: {experiment_name}")
+    except mlflow.exceptions.MlflowException as e:
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+        mlflow.tracking.MlflowClient().restore_experiment(experiment.experiment_id)
+        logger.error(f"Failed to set MLflow experiment: {experiment_name}")
+        logger.error(f"Rerun the script again")
+        raise
+
+    # 生成 run name（加时间戳）
+    timestamp = datetime.now().strftime("%Y%m%d-%H:%M")
+    run_name = f"{timestamp}_{task}_{base_model_name}_{pkl_name}_unfrozen:{unfrozen_layers}_{emb_src}"
+    logger.info(f"MLflow run name: {run_name}")
+
+    return run_name, task, model_src, base_model_name, pkl_name, unfrozen_layers, emb_src
 
 
 def main():
@@ -275,7 +314,18 @@ def main():
         token_regression(config, task=task)
 
     elif task == 'fitness':
-        fitness_regression(config, task=task)
+        run_name, task, model_src, base_model_name, pkl_name, unfrozen_layers, emb_src = create_fitness_mlflow_experiment(config, task)
+        with mlflow.start_run(run_name=run_name):
+            mlflow.set_tags({
+                "task": task,
+                "model_src": model_src,
+                "pkl_name": pkl_name,
+                "unfrozen_layers": unfrozen_layers,
+                "emb_src": emb_src,
+                "model": base_model_name
+            })
+            logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, model")
+            fitness_regression(config, task=task)
 
     else:
         raise ValueError(f"Unknown task: {task}")

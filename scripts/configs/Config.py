@@ -57,6 +57,17 @@ class TrainingArgsHydrophobicContrastiveConfig(TrainingArgsHydrophobicConfig):
     proj_dim: int
 
 @dataclass
+class PathConfigFitness(PathConfig):
+    model_src: str
+
+@dataclass
+class TrainingArgsFitnessConfig(TrainingArgsHydrophobicConfig):
+    unfreeze_last_n: int
+    emb_src: str
+
+
+
+@dataclass
 class ConfigHydrophobicBinary:
     path: PathConfig
     lora: LoRAConfig
@@ -100,8 +111,8 @@ class ConfigCentrality:
 
 @dataclass
 class ConfigFitness:
-    path: PathConfig
-    training_args: TrainingArgsHydrophobicConfig
+    path: PathConfigFitness
+    training_args: TrainingArgsFitnessConfig
 
 def from_yaml(path: str, task: str):
     with open(path, 'r') as f:
@@ -155,9 +166,10 @@ def from_yaml(path: str, task: str):
 
     elif task == "fitness":
         return ConfigFitness(
-            path=PathConfig(**raw['path']),
-            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
+            path=PathConfigFitness(**raw['path']),
+            training_args=TrainingArgsFitnessConfig(**raw['training_args'])
         )
+
     else:
         raise ValueError(f"Unsupported task type: {task}")
 
@@ -189,6 +201,8 @@ class ConfigLogger:
             self._log_order()
         elif self.task == 'centrality':
             self._log_centrality()
+        elif self.task == "fitness":
+            self._log_fitness()
         else:
             self.logger.warning(f"Unknown task: {self.task}. Logging only common parameters.")
         self.logger.info(f"\n{'=' * 10} End of Config Summary {'=' * 10}")
@@ -232,3 +246,9 @@ class ConfigLogger:
 
     def _log_centrality(self):
         pass
+
+    def _log_fitness(self):
+        self.logger.info("[Fitness Task Specific Config]")
+        self.logger.info(f"model_src: {self.config.path.model_src}")
+        self.logger.info(f"unfreeze_last_n: {self.config.training_args.unfreeze_last_n}")
+        self.logger.info(f"emb_src: {self.config.training_args.emb_src}")

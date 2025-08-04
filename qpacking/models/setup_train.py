@@ -376,17 +376,13 @@ def train_token_regression(
     logger.info(f"The best fine-tuned adapter and regressor [{task}] saved to: {best_model_path}")
 
 
-def train_fitness_regression_head(model_dir, model_src,
+def train_fitness_regression_head(model_dir, model_src, unfreeze_last_n, emb_src,
                                   checkpoints_dir, lr, eval_strategy, save_strategy, logging_strategy,
                                   save_total_limit, eval_steps, save_steps, batch_size, num_epochs,
                                   logging_dir, logging_steps, seed, reporter, metric_for_best_model, greater_is_better,
                                   train_dataloader, valid_dataloader, tokenizer):
 
-    model = FitnessRegressionModel(model_dir, model_src)
-    if model_src == "official":
-        load_best_model_at_end = False
-    else:
-        load_best_model_at_end = True
+    model = FitnessRegressionModel(model_dir, model_src, unfreeze_last_n, emb_src)
 
     training_args = TrainingArguments(
         output_dir=checkpoints_dir,
@@ -402,7 +398,7 @@ def train_fitness_regression_head(model_dir, model_src,
         num_train_epochs=num_epochs,
         logging_dir=logging_dir,
         logging_steps=logging_steps,
-        load_best_model_at_end=load_best_model_at_end,
+        load_best_model_at_end=True,
         ddp_find_unused_parameters=False,
         seed=seed,
         report_to=reporter,
@@ -410,16 +406,8 @@ def train_fitness_regression_head(model_dir, model_src,
         greater_is_better=greater_is_better,
         fp16=torch.cuda.is_available(),
     )
-    if model_src == "official":
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataloader.dataset,
-            eval_dataset=valid_dataloader.dataset,
-            compute_metrics=compute_regression_metrics,
-            callbacks=[SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
-        )
-    else:
+
+    try:
         trainer = Trainer(
             model=model,
             args=training_args,
@@ -429,7 +417,9 @@ def train_fitness_regression_head(model_dir, model_src,
             callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
                        SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
         )
-    trainer.train()
+        trainer.train()
+    except TypeError as e:
+        pass
 
     # Save the best model after training
     best_model_path = os.path.join(checkpoints_dir, 'best')

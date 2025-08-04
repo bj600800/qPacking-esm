@@ -492,6 +492,7 @@ class FitnessData:
             "wt_attention_mask": wt_encode["attention_mask"],
             "mut_input_ids": mt_encode["input_ids"],
             "mut_attention_mask": mt_encode["attention_mask"],
+            "mutation_pos": int(x['id'].split('_')[1][1:-1]),
             "label": torch.tensor(x["fitness"], dtype=torch.float),
         }
 
@@ -511,7 +512,7 @@ class FitnessData:
             logger.info(f"No valid tokenized dataset found. Starting fresh tokenization...")
             tokenized_dataset = dataset.map(
                 lambda x: self.encode_fn(x, self.tokenizer),
-                remove_columns=['fitness', 'wt_seq', 'mt_seq', 'id'],  # remove original columns
+                remove_columns=['fitness', 'wt_seq', 'mt_seq'],  # remove original columns
                 desc="Tokenizing dataset",
                 batched=False
             )
@@ -547,16 +548,15 @@ class FitnessCollator:
         wt_padded = self.tokenizer.pad(wt_batch, return_tensors="pt")
         mt_padded = self.tokenizer.pad(mt_batch, return_tensors="pt")
 
-        # 提取突变位点（假设 mutation 是 dict，包含 'pos'）
-        mutation_pos = [int(item["mutation"][1:-1]) - 1 for item in batch]
+        mutation_pos = [int(item["mutation"][1:-1]) for item in batch]  # +1 for cls token, -1 for res renumber
         mutation_pos = torch.tensor(mutation_pos, dtype=torch.long)
 
         return {
             "wt_input_ids": wt_padded["input_ids"],
             "wt_attention_mask": wt_padded["attention_mask"],
-            "mt_input_ids": mt_padded["input_ids"],
-            "mt_attention_mask": mt_padded["attention_mask"],
-            "mutation_pos": mutation_pos,
+            "mut_input_ids": mt_padded["input_ids"],
+            "mut_attention_mask": mt_padded["attention_mask"],
+            "mutation_pos": torch.tensor(mutation_pos),
             "labels": labels,
         }
 
@@ -577,6 +577,12 @@ def run_fitness_data(model_dir, pkl_file, tokenized_cache_path, test_ratio, seed
         f"Batch size: {batch_size}, "
         f"Number of training batches: {len(train_dataloader)}, "
         f"Number of validation batches: {len(valid_dataloader)}")
+
+    # batch = next(iter(train_dataloader))
+    # print(batch)
+    # print(batch["mutation_pos"][8])
+    # print(batch["wt_input_ids"][8])
+    # print(batch["mt_input_ids"][8])
     return train_dataloader, valid_dataloader, tokenizer
 
 
@@ -606,6 +612,6 @@ if __name__ == '__main__':
     # seed = 3407
     # run_data_encoder(fasta_file, pkl_file, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed)
     model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
-    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss.pkl"
-    tokenized_cache_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss_tokenized_cache"
+    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm.pkl"
+    tokenized_cache_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm_tokenized_cache"
     run_fitness_data(model_dir, pkl_file, tokenized_cache_path, test_ratio=0.2, seed=3407, batch_size=16)

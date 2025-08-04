@@ -58,10 +58,10 @@ def dump_pkl(dataset, pkl_path):
 
 if __name__ == '__main__':
     import os
-    csv_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss.csv"
+    csv_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm.csv"
     fasta_dir = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db"
-    pkl_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss.pkl"
-    offset_idx = 44
+    pkl_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm.pkl"
+    offset_idx = 40
     data_list = read_csv(csv_path)
     fasta_files = [os.path.join(fasta_dir, f) for f in os.listdir(fasta_dir) if f.endswith('.fasta')]
     fasta_dict = {}

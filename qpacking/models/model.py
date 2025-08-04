@@ -325,9 +325,10 @@ class RegressionOutput(ModelOutput):
 
 
 class FitnessRegressionModel(nn.Module):
-    def __init__(self, model_dir, model_src, unfreeze_last_n=2):
+    def __init__(self, model_dir, model_src, unfreeze_last_n, emb_src):
         super().__init__()
         if model_src == 'official':
+            self._keys_to_ignore_on_save = ['regressor', 'loss_fn']
             encoder = EsmModel.from_pretrained(model_dir, add_pooling_layer=False)
             model_prefix = "encoder.layer"
         elif model_src == 'finetuned':
@@ -337,7 +338,7 @@ class FitnessRegressionModel(nn.Module):
             model_prefix = "base_model.model.encoder.layer"
         else:
             raise ValueError(f"Unsupported model source: {model_src}. Use 'official' or 'finetuned'.")
-
+        self.emb_src = emb_src
         self.model = encoder
         hidden_size = self.model.config.hidden_size
         self.dropout = nn.Dropout(0.1)
@@ -357,6 +358,7 @@ class FitnessRegressionModel(nn.Module):
 
             if not layer_nums:
                 print("❌ 没有找到匹配的 encoder 层名，检查 encoder_prefix 是否正确。")
+
             else:
                 total_layers = max(layer_nums) + 1  # 层数是从 0 开始的
                 target_layers = list(range(total_layers - unfreeze_last_n, total_layers))
@@ -367,32 +369,61 @@ class FitnessRegressionModel(nn.Module):
                     if any(f"{model_prefix}.{i}." in name for i in target_layers):
                         param.requires_grad = True
                         matched_count += 1
-                        print(f"✅ Unfroze: {name}")
+                        # print(f"✅ Unfroze: {name}")
                     else:
                         param.requires_grad = False
 
                 print(f"\n✅ 解冻完成，共解冻 {matched_count} 个参数项。")
 
+                # 确保回归头始终训练
+                for name, param in self.regressor.named_parameters():
+                    param.requires_grad = True
+
         else:
             # 全冻结
             for _, param in self.model.named_parameters():
                 param.requires_grad = False
+            print("❄️ 模型参数已全部冻结。")
 
-    def forward(self, wt_input_ids, wt_attention_mask, mut_input_ids, mut_attention_mask, labels=None):
-        # 获取 wild-type 和 mutant 的 CLS 表达
-        wt_out = self.model(input_ids=wt_input_ids, attention_mask=wt_attention_mask).last_hidden_state[:, 0]
-        mut_out = self.model(input_ids=mut_input_ids, attention_mask=mut_attention_mask).last_hidden_state[:, 0]
+    def forward(self, wt_input_ids, wt_attention_mask, mut_input_ids, mut_attention_mask, mutation_pos, labels):
+        if self.emb_src == 'cls':
+            # 获取 wild-type 和 mutant 的 CLS 表达
+            wt_out = self.model(input_ids=wt_input_ids, attention_mask=wt_attention_mask).last_hidden_state[:, 0]
+            mut_out = self.model(input_ids=mut_input_ids, attention_mask=mut_attention_mask).last_hidden_state[:, 0]
 
-        # 差向量
-        diff = mut_out - wt_out
-        out = self.dropout(diff)
-        prediction = self.regressor(out).squeeze(-1)  # shape: (B,)
+            # 差向量
+            diff = mut_out - wt_out
+            out = self.dropout(diff)
+            prediction = self.regressor(out).squeeze(-1)  # shape: (B,)
 
-        loss = None
-        if labels is not None:
-            loss = self.loss_fn(prediction, labels)
+            loss = None
+            if labels is not None:
+                loss = self.loss_fn(prediction, labels)
 
-        return RegressionOutput(loss=loss, prediction=prediction)
+            return RegressionOutput(loss=loss, prediction=prediction)
+
+        elif self.emb_src == 'pos':
+            wt_outputs = self.model(input_ids=wt_input_ids, attention_mask=wt_attention_mask)
+            mut_outputs = self.model(input_ids=mut_input_ids, attention_mask=mut_attention_mask)
+
+            wt_hidden = wt_outputs.last_hidden_state  # (B, L, H)
+            mut_hidden = mut_outputs.last_hidden_state  # (B, L, H)
+            B, L, H = wt_hidden.shape
+
+            wt_positions = mutation_pos.view(-1, 1, 1).expand(-1, 1, H)  # (B, 1, H)
+            mut_positions = mutation_pos.view(-1, 1, 1).expand(-1, 1, H)  # (B, 1, H)
+
+            wt_out = torch.gather(wt_hidden, dim=1, index=wt_positions).squeeze(1)  # (B, H)
+            mut_out = torch.gather(mut_hidden, dim=1, index=mut_positions).squeeze(1)  # (B, H)
+
+            diff = mut_out - wt_out
+            out = self.dropout(diff)
+            prediction = self.regressor(out).squeeze(-1)  # (B,)
+            loss = None
+            if labels is not None:
+                loss = self.loss_fn(prediction, labels)
+
+            return RegressionOutput(loss=loss, prediction=prediction)
 
 if __name__ == '__main__':
     from transformers import EsmTokenizer, EsmModel
