@@ -110,7 +110,7 @@ def run(structure_file):
 
 if __name__ == '__main__':
     from qpacking.utils.visualization import show_hydrocluster_pymol
-    structure_file = r"/Users/douzhixin/Developer/qPacking/data/test/3bbbC00.pdb"
+    structure_file = r"/Users/douzhixin/Developer/qProtein-main/test/structure/A5H0S3.pdb"
     connected_graphs, structure = run(structure_file)
     print(connected_graphs)
     show_hydrocluster_pymol(structure_file, connected_graphs)

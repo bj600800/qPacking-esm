@@ -77,8 +77,10 @@ class Analyzer:
         node_labels = nx.get_node_attributes(G, 'res_name')
         class_feature = {}
         for res_id, _ in node_labels.items():
-            res_id = int(res_id) - int(self.first_res_id)
-            class_feature[res_id] = i  # cluster index starts from 1, -100 stands for mask of non-cluster residues
+            res_id = int(res_id) - int(self.first_res_id)  # position id. position start from 0
+
+            # residue id start from 0, cluster id start from 1
+            class_feature[res_id] = i
         return class_feature
 
     def get_area(self):

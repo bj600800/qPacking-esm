@@ -215,7 +215,7 @@ def train_hydrophobic_binary_classification(
         eval_dataset=valid_dataloader.dataset,
         data_collator=train_dataloader.collate_fn,
         compute_metrics=compute_binary_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5),
                    SaveCompleteModelCallback(model=model, tokenizer=tokenizer)],
     )
     trainer.train()
@@ -288,7 +288,7 @@ def train_hydrophobic_contrastive_model(
         train_dataset=train_dataloader.dataset,
         eval_dataset=valid_dataloader.dataset,
         data_collator=train_dataloader.collate_fn,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5),
                    SaveCompleteModelCallback(model=model, tokenizer=tokenizer)],
     )
 
@@ -355,7 +355,7 @@ def train_token_regression(
         eval_dataset=valid_dataloader.dataset,
         data_collator=train_dataloader.collate_fn,
         compute_metrics=compute_regression_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5),
                    SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
     )
     trainer.train()
@@ -414,7 +414,7 @@ def train_fitness_regression_head(model_dir, model_src, unfreeze_last_n, emb_src
             train_dataset=train_dataloader.dataset,
             eval_dataset=valid_dataloader.dataset,
             compute_metrics=compute_regression_metrics,
-            callbacks=[EarlyStoppingCallback(early_stopping_patience=3),
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=5),
                        SaveCompleteModelCallback(model=model, tokenizer=tokenizer)]
         )
         trainer.train()

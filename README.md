@@ -48,6 +48,7 @@ pip install umap-learn
 
 **Tools:**
 ```
+conda install -c conda-forge -c bioconda foldseek
 conda install -c conda-forge -c bioconda mmseqs2
 conda install -c bioconda seqkit
 conda install bioconda::cd-hit

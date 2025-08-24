@@ -65,6 +65,7 @@ def get_ted_ids(sql_db, output_id_file, helix, strand, turn, nres):
         params.append(num_turn)
 
     if num_res is not None:
+        num_res = num_res.split(',')
         min_res, max_res = map(int, num_res)
         query += " AND nres_domain >= ? AND nres_domain <= ?"
         params.append(min_res)

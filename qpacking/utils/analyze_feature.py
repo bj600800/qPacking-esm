@@ -11,11 +11,16 @@ import os
 import pickle
 from tqdm import tqdm
 import numpy as np
+from Bio import SeqIO
+
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from scipy.stats import norm
+from collections import Counter
+from math import comb
+
 
 from qpacking.utils import logger
 
@@ -39,6 +44,31 @@ def load_existing_results(output_file):
     except Exception as e:
         logger.error(e)
         return {}
+def analyze_class(load_existing_results):
+    binary_positive_stats = []
+    contrastive_same_cluster_stats = []
+    for protein_id, feature in tqdm(load_existing_results.items()):
+        # binary stats
+        class_feature = feature['class']
+        seq_length = len(feature['area'])  # 'area' contains features of all residues
+        hydrophobic_residue_num = len(class_feature)
+        positive_hydrophobic_ratio = hydrophobic_residue_num / seq_length
+        binary_positive_stats.append(positive_hydrophobic_ratio)
+
+        # contrastive stats
+        counts = Counter(class_feature.values())
+        total_pairs = comb(len(class_feature), 2)  # n(p,k) >= 3
+        same_pairs = sum(comb(size, 2) for size in counts.values())
+        same_cluster_ratio = same_pairs / total_pairs
+        contrastive_same_cluster_stats.append(same_cluster_ratio)
+
+    mean_binary_positive_stats = np.mean(binary_positive_stats)
+    mean_same_cluster_ratio = np.mean(contrastive_same_cluster_stats)
+    print('mean_binary_positive_stats: ', mean_binary_positive_stats)
+    print('mean_binary_negative_stats: ', str(1 - mean_binary_positive_stats))
+    print()
+    print('mean_same_cluster_ratio: ', mean_same_cluster_ratio)
+    print('mean_different_cluster_ratio: ', str(1 - mean_same_cluster_ratio))
 
 def plot_distribution_analysis(values, title_prefix="Feature", bins=20, epsilon=1e-6):
     """
@@ -83,7 +113,6 @@ def plot_distribution_analysis(values, title_prefix="Feature", bins=20, epsilon=
     plt.tight_layout()
     plt.show()
 
-
 def plot_regression(data, title):
     data = np.array(data)
 
@@ -114,7 +143,6 @@ def plot_regression(data, title):
     plt.tight_layout()
     plt.show()
 
-
 def split_feature(feature, key, data_type):
     single_feature = {}
     for k, v in feature.items():
@@ -126,7 +154,6 @@ def split_feature(feature, key, data_type):
             elif data_type == 'int':
                 single_feature[k] = {key: value for key, value in v[key].items()}
     return single_feature
-
 
 def run_split(input_pkl):
     dir_path = os.path.dirname(input_pkl)
@@ -141,29 +168,43 @@ def run_split(input_pkl):
     # existing_results = load_existing_results(r"/Users/douzhixin/Developer/qPacking/data/test/results_centrality.pkl")
     # print(existing_results)
 
+def prepare_plot_feature(load_existing_results, feature_name='centrality', bins=10):
+    data = [i for protein_id, feature in load_existing_results.items() for i in feature[feature_name].values()]
+    counts_density, bin_edges = np.histogram(data, bins=bins, density=True)
+    bin_widths = np.diff(bin_edges)  # 计算每个bin的宽度
+    print(f"{feature_name} feature")
+    # 计算bin中心
+    bin_centers = bin_edges[:-1] + bin_widths / 2
+    print("bin_centers:")
+    for i in bin_centers:
+        print(i)
+    print()
+    # 频率 = 频率密度 * bin宽度，保证频率总和为1
+    frequencies = counts_density * bin_widths
+    print("frequencies:")
+    for i in frequencies:
+        print(i)
 
-def plot_feature(load_existing_results):
-    # area = [i for k, v in load_existing_results.items() for i in v['area'].values()]
-    # plot_regression(area, 'SASA Area')
-    # input()
+    # # 验证频率之和为1
+    # print("Sum of frequencies:", frequencies.sum())
 
-    # degree = [i for k, v in load_existing_results.items() for i in v['degree'].values()]
-    # plot_regression(degree, 'Degree')
-    # input()
-    rsa = [i for k, v in load_existing_results.items() for i in v['rsa'].values()]
-    plot_regression(rsa, 'rSAS')
-    input()
-    order = [i for k, v in load_existing_results.items() for i in v['order'].values()]
-    # plot_regression(order, 'Packing order')
-    # input()
-    centrality = [i for k, v in load_existing_results.items() for i in v['centrality'].values()]
-    # plot_regression(centrality, 'centrality')
+
+
+
+
 
 
 if __name__ == '__main__':
-    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/70/70_results.pkl"
+    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/80/80_results.pkl"
+    fasta_path = r"/Users/douzhixin/Developer/qPacking/data/sequence/complete_tim_80.fasta"
     data = load_existing_results(pkl_file)
-    plot_feature(data)
+    prepare_plot_feature(data)
+
+
+
+
+
+    # analyze_class(data)
     # run_split(pkl_file)
 
     # data = load_existing_results(degree_pkl)

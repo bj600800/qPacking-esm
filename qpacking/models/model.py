@@ -341,8 +341,16 @@ class FitnessRegressionModel(nn.Module):
         self.emb_src = emb_src
         self.model = encoder
         hidden_size = self.model.config.hidden_size
-        self.dropout = nn.Dropout(0.1)
-        self.regressor = nn.Linear(hidden_size, 1)  # 输出一个实数值
+
+        self.regressor = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size, 1)
+        )
+
+        # self.regressor = nn.Linear(hidden_size, 1)  # the simplest linear regression head
+
         self.loss_fn = MSELoss(reduction="mean")
 
         # 自动检测层数并解冻最后 n 层
@@ -387,43 +395,31 @@ class FitnessRegressionModel(nn.Module):
 
     def forward(self, wt_input_ids, wt_attention_mask, mut_input_ids, mut_attention_mask, mutation_pos, labels):
         if self.emb_src == 'cls':
-            # 获取 wild-type 和 mutant 的 CLS 表达
-            wt_out = self.model(input_ids=wt_input_ids, attention_mask=wt_attention_mask).last_hidden_state[:, 0]
-            mut_out = self.model(input_ids=mut_input_ids, attention_mask=mut_attention_mask).last_hidden_state[:, 0]
-
-            # 差向量
-            diff = mut_out - wt_out
-            out = self.dropout(diff)
-            prediction = self.regressor(out).squeeze(-1)  # shape: (B,)
-
-            loss = None
-            if labels is not None:
-                loss = self.loss_fn(prediction, labels)
-
-            return RegressionOutput(loss=loss, prediction=prediction)
+            wt_out = self.model(wt_input_ids, wt_attention_mask)[0][:, 0]  # CLS token embedding
+            mut_out = self.model(mut_input_ids, mut_attention_mask)[0][:, 0]
 
         elif self.emb_src == 'pos':
-            wt_outputs = self.model(input_ids=wt_input_ids, attention_mask=wt_attention_mask)
-            mut_outputs = self.model(input_ids=mut_input_ids, attention_mask=mut_attention_mask)
+            wt_hidden = self.model(wt_input_ids, wt_attention_mask)[0]  # (B, L, H)
+            mut_hidden = self.model(mut_input_ids, mut_attention_mask)[0]
 
-            wt_hidden = wt_outputs.last_hidden_state  # (B, L, H)
-            mut_hidden = mut_outputs.last_hidden_state  # (B, L, H)
-            B, L, H = wt_hidden.shape
+            B, L, H = wt_hidden.size()
+            pos = mutation_pos.view(-1, 1, 1).expand(-1, 1, H)  # (B,1,H)
+            wt_out = torch.gather(wt_hidden, 1, pos).squeeze(1)  # (B, H)
+            mut_out = torch.gather(mut_hidden, 1, pos).squeeze(1)
 
-            wt_positions = mutation_pos.view(-1, 1, 1).expand(-1, 1, H)  # (B, 1, H)
-            mut_positions = mutation_pos.view(-1, 1, 1).expand(-1, 1, H)  # (B, 1, H)
+        else:
+            raise ValueError(f"Unsupported emb_src: {self.emb_src}")
 
-            wt_out = torch.gather(wt_hidden, dim=1, index=wt_positions).squeeze(1)  # (B, H)
-            mut_out = torch.gather(mut_hidden, dim=1, index=mut_positions).squeeze(1)  # (B, H)
+        diff = mut_out - wt_out  # 差向量
 
-            diff = mut_out - wt_out
-            out = self.dropout(diff)
-            prediction = self.regressor(out).squeeze(-1)  # (B,)
-            loss = None
-            if labels is not None:
-                loss = self.loss_fn(prediction, labels)
+        prediction = self.regressor(diff).squeeze(-1)  # 非线性回归头输出标量
 
-            return RegressionOutput(loss=loss, prediction=prediction)
+        loss = None
+        if labels is not None:
+            loss = self.loss_fn(prediction, labels)
+
+        return RegressionOutput(loss=loss, prediction=prediction)
+
 
 if __name__ == '__main__':
     from transformers import EsmTokenizer, EsmModel
