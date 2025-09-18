@@ -170,3 +170,4 @@ cython_debug/
 *.pdb
 checkpoints/
 mlruns/
+*.html
