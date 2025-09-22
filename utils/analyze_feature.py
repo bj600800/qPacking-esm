@@ -11,9 +11,7 @@ import os
 import pickle
 from tqdm import tqdm
 import numpy as np
-from Bio import SeqIO
 
-import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
@@ -21,8 +19,7 @@ from scipy.stats import norm
 from collections import Counter
 from math import comb
 
-
-from qpacking.utils import logger
+from utils import logger
 
 logger = logger.setup_log(name=__name__)
 

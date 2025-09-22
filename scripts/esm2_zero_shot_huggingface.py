@@ -7,12 +7,11 @@
 # Description: template code. Zero-shot prediction with esm2 adapted part of the official codes from esm GitHub.
 # ------------------------------------------------------------------------------
 """
-import os
 from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM
-from qpacking.utils import logger
+from utils import logger
 
 logger = logger.setup_log(name=__name__)
 

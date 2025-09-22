@@ -4,28 +4,26 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/3
 
-# Description: Continual learning model for token-wise tasks.
+# Description: Continual learning training for token-wise tasks.
 # ------------------------------------------------------------------------------
 """
 from typing import Optional
 import torch
 import torch.nn.functional as F
-from transformers import EsmModel
 from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
-from peft import get_peft_model, LoraConfig, PeftModel, PeftConfig
-from transformers.modeling_outputs import TokenClassifierOutput, SequenceClassifierOutput
+from peft import get_peft_model, LoraConfig
+from transformers.modeling_outputs import TokenClassifierOutput
 import torch.nn as nn
 from torch.nn import MSELoss
-from qpacking.utils import logger
-
+from utils import logger
 
 logger = logger.setup_log(name=__name__)
 
 
 def print_trainable_parameters(model):
     """
-    Prints the number of trainable parameters in the model.
+    Prints the number of trainable parameters in the training.
     """
     trainable_params = 0
     all_param = 0
@@ -43,18 +41,18 @@ def print_trainable_parameters(model):
 
 def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
     """
-    load the ESM backbone model with lora
+    load the ESM backbone training with lora
     Args:
-        model_dir: denoted as model name
+        model_dir: denoted as training name
 
     Returns:
-        model
+        training
     """
     model = EsmModel.from_pretrained(model_dir,
                                      # weights_only=True,
                                      torch_dtype=torch.float32,
                                      add_pooling_layer=False)
-    # model.gradient_checkpointing_enable()  # reduce the number of stored activations
+    # training.gradient_checkpointing_enable()  # reduce the number of stored activations
     model.enable_input_require_grads()  # allow lora update
 
     config = LoraConfig(
@@ -335,9 +333,9 @@ class FitnessRegressionModel(nn.Module):
             peft_config = PeftConfig.from_pretrained(model_dir)
             model_tuned_encoder = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
             encoder = PeftModel.from_pretrained(model_tuned_encoder, model_dir)
-            model_prefix = "base_model.model.encoder.layer"
+            model_prefix = "base_model.training.encoder.layer"
         else:
-            raise ValueError(f"Unsupported model source: {model_src}. Use 'official' or 'finetuned'.")
+            raise ValueError(f"Unsupported training source: {model_src}. Use 'official' or 'finetuned'.")
         self.emb_src = emb_src
         self.model = encoder
         hidden_size = self.model.config.hidden_size
@@ -422,12 +420,12 @@ class FitnessRegressionModel(nn.Module):
 
 
 if __name__ == '__main__':
-    from transformers import EsmTokenizer, EsmModel
+    from transformers import EsmModel
     from peft import PeftModel, PeftConfig
     # --------------------------
     # 加载模型路径（替换为你的路径）
     # --------------------------
-    best_model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"  # 替换为你的 LoRA 模型目录
+    best_model_path = "/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"  # 替换为你的 LoRA 模型目录
     peft_config = PeftConfig.from_pretrained(best_model_path)
 
     # --------------------------

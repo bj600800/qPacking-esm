@@ -43,14 +43,14 @@ def read_msa(filename: str, nseq: int) -> List[Tuple[str, str]]:
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description="Label a deep mutational scan with predictions from an ensemble of ESM-1v models."  # noqa
+        description="Label a deep mutational scan with predictions from an ensemble of ESM-1v training."  # noqa
     )
 
     # fmt: off
     parser.add_argument(
-        "--model-location",
+        "--training-location",
         type=str,
-        help="PyTorch model file OR name of pretrained model to download (see README for models)",
+        help="PyTorch training file OR name of pretrained training to download (see README for training)",
         nargs="+",
     )
     parser.add_argument(
@@ -148,7 +148,7 @@ def main(args):
     df = pd.read_csv(args.dms_input)
     device = torch.device("mps" if torch.cuda.is_available() else "cpu")
 
-    # inference for each model
+    # inference for each training
     for model_location in args.model_location:
         model_location = Path(model_location)
         model_data = torch.load(str(model_location), map_location="cpu")
@@ -159,10 +159,10 @@ def main(args):
         model.eval()
         if torch.cuda.is_available() and not args.nogpu:
             model = model.cuda()
-            print("Transferred model to GPU")
+            print("Transferred training to GPU")
         elif torch.mps.is_available():
             model = model.to(device)
-            print("Transferred model to MPS")
+            print("Transferred training to MPS")
         batch_converter = alphabet.get_batch_converter()
 
         if isinstance(model, MSATransformer):

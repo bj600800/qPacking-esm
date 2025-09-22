@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/15
 
-# Description: Test fine-tuned ESM-2 model for predicting hydrophobic features
+# Description: Test fine-tuned ESM-2 training for predicting hydrophobic features
 # ------------------------------------------------------------------------------
 """
 import torch
@@ -50,7 +50,7 @@ model = HydrophobicBinaryClassificationModel(backbone=base_model, num_class=2)
 model.classifier.load_state_dict(torch.load(f"{best_model_path}/classifier_head.pt", weights_only=True, map_location=torch.device('mps')))
 
 # contrastive
-# model = HydrophobicContrastiveModel(backbone=base_model)
+# training = HydrophobicContrastiveModel(backbone=base_model)
 model.eval()
 
 # ==== 6. 输入示例序列 ====

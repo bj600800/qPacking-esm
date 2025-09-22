@@ -15,13 +15,12 @@ import numpy as np
 from Bio import SeqIO
 
 import torch
-from accelerate.test_utils.scripts.test_script import print_main
 from torch.utils.data import DataLoader
 from transformers import EsmTokenizer, DataCollatorWithPadding
 from datasets import Dataset, DatasetDict, load_from_disk
 
-from qpacking.utils.analyze_feature import load_existing_results
-from qpacking.utils import logger
+from utils.analyze_feature import load_existing_results
+from utils import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -611,7 +610,7 @@ if __name__ == '__main__':
     # batch_size = 16
     # seed = 3407
     # run_data_encoder(fasta_file, pkl_file, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed)
-    model_dir = r"/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
+    model_dir = r"/checkpoints/esm2_t30_150M_UR50D"
     pkl_file = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm.pkl"
     tokenized_cache_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm_tokenized_cache"
     run_fitness_data(model_dir, pkl_file, tokenized_cache_path, test_ratio=0.2, seed=3407, batch_size=16)

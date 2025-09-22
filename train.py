@@ -13,11 +13,11 @@ import argparse
 import mlflow
 from datetime import datetime
 
-from qpacking.models import dataset
-from qpacking.models.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
-                                         train_token_regression, train_fitness_regression_head)
+from training import dataset
+from training.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
+                                  train_token_regression, train_fitness_regression_head)
 from scripts.configs import Config
-from qpacking.utils import logger
+from utils import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -322,9 +322,9 @@ def main():
                 "pkl_name": pkl_name,
                 "unfrozen_layers": unfrozen_layers,
                 "emb_src": emb_src,
-                "model": base_model_name
+                "training": base_model_name
             })
-            logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, model")
+            logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, training")
             fitness_regression(config, task=task)
 
     else:
