@@ -171,3 +171,5 @@ cython_debug/
 checkpoints/
 mlruns/
 *.html
+default_config.json
+
