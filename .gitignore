@@ -172,4 +172,4 @@ checkpoints/
 mlruns/
 *.html
 default_config.json
-
+logs/
