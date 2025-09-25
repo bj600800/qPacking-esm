@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/3
 
-# Description: Continual learning training for token-wise tasks.
+# Description: Continual learning model for token-wise tasks.
 # ------------------------------------------------------------------------------
 """
 from typing import Optional
@@ -16,14 +16,14 @@ from peft import get_peft_model, LoraConfig
 from transformers.modeling_outputs import TokenClassifierOutput
 import torch.nn as nn
 from torch.nn import MSELoss
-from utils import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 
 
 def print_trainable_parameters(model):
     """
-    Prints the number of trainable parameters in the training.
+    Prints the number of trainable parameters in the model.
     """
     trainable_params = 0
     all_param = 0
@@ -41,18 +41,18 @@ def print_trainable_parameters(model):
 
 def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
     """
-    load the ESM backbone training with lora
+    load the ESM backbone model with lora
     Args:
-        model_dir: denoted as training name
+        model_dir: denoted as model name
 
     Returns:
-        training
+        model
     """
     model = EsmModel.from_pretrained(model_dir,
                                      # weights_only=True,
                                      torch_dtype=torch.float32,
                                      add_pooling_layer=False)
-    # training.gradient_checkpointing_enable()  # reduce the number of stored activations
+    # model.gradient_checkpointing_enable()  # reduce the number of stored activations
     model.enable_input_require_grads()  # allow lora update
 
     config = LoraConfig(
@@ -333,9 +333,9 @@ class FitnessRegressionModel(nn.Module):
             peft_config = PeftConfig.from_pretrained(model_dir)
             model_tuned_encoder = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
             encoder = PeftModel.from_pretrained(model_tuned_encoder, model_dir)
-            model_prefix = "base_model.training.encoder.layer"
+            model_prefix = "base_model.model.encoder.layer"
         else:
-            raise ValueError(f"Unsupported training source: {model_src}. Use 'official' or 'finetuned'.")
+            raise ValueError(f"Unsupported model source: {model_src}. Use 'official' or 'finetuned'.")
         self.emb_src = emb_src
         self.model = encoder
         hidden_size = self.model.config.hidden_size

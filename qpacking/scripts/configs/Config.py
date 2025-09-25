@@ -9,7 +9,7 @@
 """
 import yaml
 from dataclasses import dataclass
-from utils import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -176,7 +176,7 @@ def from_yaml(path: str, task: str):
 
 class ConfigLogger:
     """
-    A class to log configuration details for different training tasks.
+    A class to log configuration details for different model tasks.
     """
     def __init__(self, config, task: str, logger=logger):
         self.config = config

@@ -20,9 +20,9 @@ from transformers import (
     TrainerCallback
 )
 
-from training.model import (TokenClassificationModel, FocalLoss, FitnessRegressionModel,
-                            HydrophobicContrastiveModel, TokenRegressionModel)
-from utils import logger
+from qpacking.model.model import (TokenClassificationModel, FocalLoss, FitnessRegressionModel,
+                                  HydrophobicContrastiveModel, TokenRegressionModel)
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -151,7 +151,7 @@ class SaveCompleteModelCallback(TrainerCallback):
         os.makedirs(output_dir, exist_ok=True)
 
         # save adapter
-        if hasattr(self.model, "training") and hasattr(self.model.model, "save_pretrained"):
+        if hasattr(self.model, "model") and hasattr(self.model.model, "save_pretrained"):
             self.model.model.save_pretrained(output_dir)
 
         if hasattr(self.model, "classifier"):
@@ -215,7 +215,7 @@ def train_hydrophobic_binary_classification(
     )
     trainer.train()
 
-    # Save the best training after training
+    # Save the best model after model
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
@@ -239,7 +239,7 @@ def train_hydrophobic_contrastive_model(
         seed, reporter, metric_for_best_model, greater_is_better,
         train_dataloader, valid_dataloader, tokenizer, task):
     """
-    setup contrastive training trainer
+    setup contrastive model trainer
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -290,7 +290,7 @@ def train_hydrophobic_contrastive_model(
     trainer.train()
 
     # Saved 2:
-    # save the best training after training
+    # save the best model after model
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
@@ -355,7 +355,7 @@ def train_token_regression(
     )
     trainer.train()
 
-    # Save the best training after training
+    # Save the best model after model
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
@@ -416,7 +416,7 @@ def train_fitness_regression_head(model_dir, model_src, unfreeze_last_n, emb_src
     except TypeError as e:
         pass
 
-    # Save the best training after training
+    # Save the best model after model
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 

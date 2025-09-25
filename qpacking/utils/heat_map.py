@@ -7,7 +7,7 @@
 # ------------------------------------------------------------------------------
 import pandas as pd
 import matplotlib.pyplot as plt
-from utils import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 

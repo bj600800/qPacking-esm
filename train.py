@@ -13,11 +13,11 @@ import argparse
 import mlflow
 from datetime import datetime
 
-from training import dataset
-from training.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
-                                  train_token_regression, train_fitness_regression_head)
+from qpacking.model import dataset
+from qpacking.model.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
+                                        train_token_regression, train_fitness_regression_head)
 from scripts.configs import Config
-from utils import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -70,7 +70,7 @@ def hydrophobic_binary(config, task):
     try:
         train_hydrophobic_binary_classification(**model_args, tokenizer=tokenizer, task=task)
     except TypeError as e:
-        logger.error("Failed to start training — argument mismatch!")
+        logger.error("Failed to start model — argument mismatch!")
         logger.error(str(e))
         raise
 
@@ -122,7 +122,7 @@ def hydrophobic_contrastive(config, task):
     try:
         train_hydrophobic_contrastive_model(**model_args, tokenizer=tokenizer, task=task)
     except TypeError as e:
-        logger.error("Failed to start training — argument mismatch!")
+        logger.error("Failed to start model — argument mismatch!")
         logger.error(str(e))
         raise
 
@@ -174,7 +174,7 @@ def token_regression(config, task):
     try:
         train_token_regression(**model_args, tokenizer=tokenizer, task=task)
     except TypeError as e:
-        logger.error("Failed to start training — argument mismatch!")
+        logger.error("Failed to start model — argument mismatch!")
         logger.error(str(e))
         raise
 
@@ -230,7 +230,7 @@ def fitness_regression(config, task):
     try:
         train_fitness_regression_head(**model_args, tokenizer=tokenizer)
     except TypeError as e:
-        logger.error("Failed to start training — argument mismatch!")
+        logger.error("Failed to start model — argument mismatch!")
         logger.error(str(e))
         raise
 
@@ -268,7 +268,7 @@ def create_fitness_mlflow_experiment(config, task):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Protein training script")
+    parser = argparse.ArgumentParser(description="Protein model script")
     parser.add_argument(
         '--task',
         type=str,
@@ -282,7 +282,7 @@ def main():
         '--yaml',
         type=str,
         required=True,
-        help="Hyper-params file needed for specifying the training task"
+        help="Hyper-params file needed for specifying the model task"
     )
 
     args = parser.parse_args()
@@ -322,9 +322,9 @@ def main():
                 "pkl_name": pkl_name,
                 "unfrozen_layers": unfrozen_layers,
                 "emb_src": emb_src,
-                "training": base_model_name
+                "model": base_model_name
             })
-            logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, training")
+            logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, model")
             fitness_regression(config, task=task)
 
     else:

@@ -27,7 +27,7 @@ def extract_embeddings_with_protein_ids(model, dataloader, device, save_dir, pre
     提取embedding，同时用batch中行索引作为蛋白ID
 
     Args:
-        training, dataloader, device, save_dir, prefix 同前
+        model, dataloader, device, save_dir, prefix 同前
 
     Returns:
         emb_path, lab_path, pid_path
@@ -188,7 +188,7 @@ def extract_and_evaluate_per_protein(model, dataloader, device, save_dir, train_
 if __name__ == "__main__":
     from transformers import EsmModel, EsmTokenizer
     from peft import PeftModel
-    from training import dataset
+    from qpacking.model import dataset
 
     fasta_file = r"/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
     pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/results_class.pkl"

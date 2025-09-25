@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/7/24
 
-# Description: Zero-shot prediction using PEFT-finetuned ESM-2 training with official MLM head,
+# Description: Zero-shot prediction using PEFT-finetuned ESM-2 model with official MLM head,
 # adapted to predict fitness from mutation data with separate wt/pos/mt columns.
 # ------------------------------------------------------------------------------
 """
@@ -14,7 +14,7 @@ from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import EsmTokenizer, EsmForMaskedLM
-from utils import logger
+from qpacking.utils import logger
 from scipy.stats import spearmanr
 
 logger = logger.setup_log(name=__name__)
@@ -108,7 +108,7 @@ def main(model_path, model_name, sequence, dms_input, offset_idx, scoring_strate
         df = score_mutations(df, sequence, token_probs, tokenizer, offset_idx, mutation_col, model_name)
 
     else:
-        raise ValueError("Only wt-marginals and masked-marginals are supported with PEFT training.")
+        raise ValueError("Only wt-marginals and masked-marginals are supported with PEFT model.")
 
     logger.info(f"Writing to file: {dms_output}")
     df.to_csv(dms_output, index=False)

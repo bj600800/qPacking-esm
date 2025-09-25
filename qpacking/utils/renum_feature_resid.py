@@ -13,7 +13,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 import biotite.structure.io as strucio
-from utils import logger
+from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)
 

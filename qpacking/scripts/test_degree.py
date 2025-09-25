@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/15
 
-# Description: Test fine-tuned ESM-2 training for per-residue degree regression
+# Description: Test fine-tuned ESM-2 model for per-residue degree regression
 # ------------------------------------------------------------------------------
 """
 
