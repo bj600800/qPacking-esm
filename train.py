@@ -13,10 +13,10 @@ import argparse
 import mlflow
 from datetime import datetime
 
-from qpacking.model import dataset
+from qpacking.data import dataset
 from qpacking.model.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
                                         train_token_regression, train_fitness_regression_head)
-from scripts.configs import Config
+from qpacking.scripts.configs import Config
 from qpacking.utils import logger
 
 logger = logger.setup_log(name=__name__)

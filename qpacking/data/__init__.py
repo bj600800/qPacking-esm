@@ -4,6 +4,6 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/9/25
 
-# Description: 
+# Description: raw data --> tensor data
 # ------------------------------------------------------------------------------
 """

@@ -29,5 +29,5 @@ conda install libboost==1.73.0
 ## Run qPacking
 
 
-## Notice
+## Cite
 Publish as preprint in bioRxiv.

@@ -188,7 +188,7 @@ def extract_and_evaluate_per_protein(model, dataloader, device, save_dir, train_
 if __name__ == "__main__":
     from transformers import EsmModel, EsmTokenizer
     from peft import PeftModel
-    from qpacking.model import dataset
+    from qpacking.data import dataset
 
     fasta_file = r"/Users/douzhixin/Developer/qPacking/data/test/sequence.fasta"
     pkl_file = r"/Users/douzhixin/Developer/qPacking/data/test/results_class.pkl"
