@@ -19,7 +19,7 @@ from scipy.stats import norm
 from collections import Counter
 from math import comb
 
-from qpacking.utils import logger
+from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 

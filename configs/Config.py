@@ -9,7 +9,7 @@
 """
 import yaml
 from dataclasses import dataclass
-from qpacking.utils import logger
+from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 

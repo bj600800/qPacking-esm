@@ -14,7 +14,7 @@ from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import EsmTokenizer, EsmForMaskedLM
-from qpacking.utils import logger
+from qpacking.common import logger
 from scipy.stats import spearmanr
 
 logger = logger.setup_log(name=__name__)

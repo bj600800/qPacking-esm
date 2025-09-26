@@ -22,7 +22,7 @@ from transformers import (
 
 from qpacking.model.model import (TokenClassificationModel, FocalLoss, FitnessRegressionModel,
                                   HydrophobicContrastiveModel, TokenRegressionModel)
-from qpacking.utils import logger
+from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 

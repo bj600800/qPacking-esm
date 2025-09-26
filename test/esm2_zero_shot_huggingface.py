@@ -11,7 +11,7 @@ from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM
-from qpacking.utils import logger
+from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 

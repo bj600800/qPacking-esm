@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader
 from transformers import EsmTokenizer, DataCollatorWithPadding
 from datasets import Dataset, DatasetDict, load_from_disk
 
-from qpacking.utils.analyze_feature import load_existing_results
-from qpacking.utils import logger
+from qpacking.common.analyze_feature import load_existing_results
+from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 

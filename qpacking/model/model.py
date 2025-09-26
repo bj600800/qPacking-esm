@@ -16,7 +16,7 @@ from peft import get_peft_model, LoraConfig
 from transformers.modeling_outputs import TokenClassifierOutput
 import torch.nn as nn
 from torch.nn import MSELoss
-from qpacking.utils import logger
+from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 
