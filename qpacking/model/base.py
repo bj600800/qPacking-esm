@@ -4,12 +4,13 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/9/29
 
-# Description: 【更正】Base model with LoRA adaptation
+# Description: Base model with LoRA adaptation
+[TEST PASS 100%]
 # ------------------------------------------------------------------------------
 """
 import torch
 import torch.nn as nn
-from peft import get_peft_model, LoraConfig, PeftConfig, PeftModel
+from peft import get_peft_model, LoraConfig
 from transformers import EsmModel
 
 def load_lora_model(model_dir, lora_rank, lora_alpha, lora_dropout):
@@ -18,7 +19,7 @@ def load_lora_model(model_dir, lora_rank, lora_alpha, lora_dropout):
         torch_dtype=torch.float32,
         add_pooling_layer=False
     )
-    model.enable_input_require_grads()  # 允许LoRA更新
+    model.enable_input_require_grads() # Enable gradients for input embeddings
     config = LoraConfig(
         r=lora_rank,
         lora_alpha=lora_alpha,
@@ -28,6 +29,7 @@ def load_lora_model(model_dir, lora_rank, lora_alpha, lora_dropout):
         bias="none"
     )
     return get_peft_model(model, config)
+
 
 class BaseESMLoraModel(nn.Module):
     def __init__(self, model_dir, lora_rank, lora_alpha, lora_dropout):

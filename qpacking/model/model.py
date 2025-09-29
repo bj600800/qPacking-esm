@@ -23,38 +23,38 @@ from qpacking.common import logger
 logger = logger.setup_log(name=__name__)
 
 
-def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
-    """
-    load the ESM backbone model with lora
-    Args:
-        model_dir: denoted as model name
-
-    Returns:
-        model
-    """
-    model = EsmModel.from_pretrained(model_dir,
-                                     # weights_only=True,
-                                     torch_dtype=torch.float32,
-                                     add_pooling_layer=False)
-    # model.gradient_checkpointing_enable()  # reduce the number of stored activations
-    model.enable_input_require_grads()  # allow lora update
-
-    config = LoraConfig(
-        r=lora_rank,  # attention rank 8
-        lora_alpha=lora_alpha,  # alpha scaling 8
-        target_modules=[
-            "query",
-            "key",
-            "value",
-            "dense"],  # keyword match
-        inference_mode=False,
-        lora_dropout=lora_dropout, # 0.05
-        bias="none"
-    )
-
-    model = get_peft_model(model, config)
-
-    return model
+# def load_model(model_dir, lora_rank, lora_alpha, lora_dropout):
+#     """
+#     load the ESM backbone model with lora
+#     Args:
+#         model_dir: denoted as model name
+#
+#     Returns:
+#         model
+#     """
+#     model = EsmModel.from_pretrained(model_dir,
+#                                      # weights_only=True,
+#                                      torch_dtype=torch.float32,
+#                                      add_pooling_layer=False)
+#     # model.gradient_checkpointing_enable()  # reduce the number of stored activations
+#     model.enable_input_require_grads()  # allow lora update
+#
+#     config = LoraConfig(
+#         r=lora_rank,  # attention rank 8
+#         lora_alpha=lora_alpha,  # alpha scaling 8
+#         target_modules=[
+#             "query",
+#             "key",
+#             "value",
+#             "dense"],  # keyword match
+#         inference_mode=False,
+#         lora_dropout=lora_dropout, # 0.05
+#         bias="none"
+#     )
+#
+#     model = get_peft_model(model, config)
+#
+#     return model
 
 
 class HydrophobicContrastiveModel(nn.Module):
@@ -196,7 +196,7 @@ class FitnessRegressionModel(nn.Module):
         self.loss_fn = MSELoss(reduction="mean")
 
         # unfrozen model params
-        params.unfreeze_backbone(self.model, model_prefix, unfreeze_last_n)
+        params.unfreeze_backbone(self.model, unfreeze_last_n, model_prefix)
 
         # Train header
         for name, param in self.regressor.named_parameters():
@@ -234,11 +234,11 @@ class FitnessRegressionModel(nn.Module):
 if __name__ == '__main__':
     from transformers import EsmModel
     from peft import PeftModel, PeftConfig
-    best_model_path = "/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"
+    best_model_path = "/Users/douzhixin/Developer/qPacking/data/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"
     peft_config = PeftConfig.from_pretrained(best_model_path)
-    model_base = FitnessRegressionModel(best_model_path, 'official')
+    model_base = FitnessRegressionModel(best_model_path, 'official', unfreeze_last_n=0, emb_src='cls')
     model_base.eval()
-    model_tuned = FitnessRegressionModel(best_model_path, 'finetuned')
+    model_tuned = FitnessRegressionModel(best_model_path, 'finetuned', unfreeze_last_n=0, emb_src='cls')
     model_tuned.eval()
     batch_size = 2
     seq_len = 512
@@ -251,7 +251,6 @@ if __name__ == '__main__':
         'mut_input_ids': torch.randint(0, vocab_size, (batch_size, seq_len)),
         'mut_attention_mask': torch.ones((batch_size, seq_len), dtype=torch.long),
     }
-
     with torch.no_grad():
         base_out = model_base(**dummy_input)
         tuned_out = model_tuned(**dummy_input)
