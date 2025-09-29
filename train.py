@@ -247,7 +247,6 @@ def create_fitness_mlflow_experiment(config, task):
     else:
         base_model_name = os.path.basename(os.path.dirname(config.path.model_dir))
 
-    # 组装实验名
     experiment_name = f"{task}_{base_model_name}_{pkl_name}"
     try:
         mlflow.set_experiment(experiment_name)
@@ -259,7 +258,6 @@ def create_fitness_mlflow_experiment(config, task):
         logger.error(f"Rerun the script again")
         raise
 
-    # 生成 run name（加时间戳）
     timestamp = datetime.now().strftime("%Y%m%d-%H:%M")
     run_name = f"{timestamp}_{task}_{base_model_name}_{pkl_name}_unfrozen:{unfrozen_layers}_{emb_src}"
     logger.info(f"MLflow run name: {run_name}")
