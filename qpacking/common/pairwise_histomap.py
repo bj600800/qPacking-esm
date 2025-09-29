@@ -29,7 +29,7 @@ plt.bar(percentage.index, percentage.values, color='skyblue')
 plt.xlabel('Sequence identity', fontsize=16)
 plt.ylabel('Percentage (%)', fontsize=16)
 plt.title('80')
-plt.ylim(0, max(percentage.values) * 1.1)  # 增加 20% 的空白空间，以确保文本显示
+plt.ylim(0, max(percentage.values) * 1.1)
 
 # show percentage number on the plot bars
 for i, v in enumerate(percentage.values):

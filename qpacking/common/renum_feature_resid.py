@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/6
 
-# Description: 
+# Description: Renumber pdb residue id start from 1
 # ------------------------------------------------------------------------------
 """
 import pickle
@@ -87,10 +87,6 @@ def run(pdb_dir, pkl_file, new_file):
                 feature_class = protein_feature['class']
                 renum_feature = renumber_resid(feature_class, first_res_id)
                 new_feature[pdb_name] = renum_feature
-
-                # print(pdb, first_res_id)
-                # print("original: ", feature_class)
-                # print("renumbered: ", renum_feature)
                 renumber_count += 1
         else:
             if _:
