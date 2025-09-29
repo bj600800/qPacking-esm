@@ -20,8 +20,9 @@ from transformers import (
     TrainerCallback
 )
 
-from qpacking.model.model import (TokenClassificationModel, FocalLoss, FitnessRegressionModel,
+from qpacking.model.model import (TokenClassificationModel, FitnessRegressionModel,
                                   HydrophobicContrastiveModel, TokenRegressionModel)
+from qpacking.model.loss import FocalLoss
 from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)

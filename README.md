@@ -17,6 +17,7 @@ pip install mlflow
 pip install tqdm
 pip install melodia-py (version=0.1.4)
 pip install umap-learn
+pip install pytest
 
 conda install -c conda-forge -c bioconda foldseek
 conda install -c conda-forge -c bioconda mmseqs2

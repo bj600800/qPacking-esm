@@ -14,7 +14,7 @@ class LevelFilter(logging.Filter):
         return record.levelno == self.handler_level
 
 
-def setup_log(name, log_dir="./logs", enable_file_log=True):
+def setup_log(name, log_dir="./logs", enable_file_log=False):
     """
     Setup logger with optional file logging and colored console output.
 
