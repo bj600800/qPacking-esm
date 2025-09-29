@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/5
 
-# Description: Construct dataset for fine-tuning esm-2
+# Description: Construct dataset from qProtein2 for fine-tuning esm-2
 # ------------------------------------------------------------------------------
 """
 import pickle
@@ -461,7 +461,6 @@ class FitnessData:
                 item['raw_fitness'] = item['fitness']  # keep original fitness value
                 item['fitness'] = (item['fitness'] - self.mu) / self.sigma
 
-
         logger.info(f"Z-score normalization applied: mu={self.mu:.4f}, sigma={self.sigma:.4f}")
         return pkl_data
 
@@ -610,7 +609,7 @@ if __name__ == '__main__':
     # batch_size = 16
     # seed = 3407
     # run_data_encoder(fasta_file, pkl_file, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed)
-    model_dir = r"/checkpoints/esm2_t30_150M_UR50D"
+    model_dir = r"/Users/douzhixin/Developer/qPacking/data/checkpoints/esm2_t30_150M_UR50D"
     pkl_file = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm.pkl"
     tokenized_cache_path = r"/Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/tm_tokenized_cache"
     run_fitness_data(model_dir, pkl_file, tokenized_cache_path, test_ratio=0.2, seed=3407, batch_size=16)

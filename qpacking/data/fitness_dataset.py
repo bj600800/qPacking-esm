@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/7/27
 
-# Description: 
+# Description: Fitness data patch
 # ------------------------------------------------------------------------------
 """
 import csv
@@ -73,4 +73,4 @@ if __name__ == '__main__':
 
     with open(pkl_path, 'rb') as f:
         loaded_data = pickle.load(f)
-
+    print(loaded_data)
