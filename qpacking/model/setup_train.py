@@ -78,18 +78,15 @@ def compute_binary_metrics(eval_preds):
 
 def compute_regression_metrics(eval_pred):
     """
-    用于 Huggingface Trainer 的回归评估函数
     Args:
-        eval_pred: EvalPrediction 对象，包含 predictions 和 label_ids
+        eval_pred:
     Returns:
-        dict: 各类回归指标
+        dict:
     """
     predictions, labels = eval_pred
-    # 对于逐位点回归任务，预测 shape 应为 (batch_size, seq_len, 1) 或 (batch_size, seq_len)
     if predictions.ndim == 3 and predictions.shape[-1] == 1:
         predictions = predictions.squeeze(-1)
 
-    # 将 -100 的标签去除（mask）
     mask = labels != -100
     y_true = labels[mask]
     y_pred = predictions[mask]
@@ -120,7 +117,7 @@ def compute_regression_metrics(eval_pred):
 #     preds = pred.predictions.squeeze()  # shape: (batch,)
 #     labels = pred.label_ids.squeeze()
 #
-#     # 反归一化
+#
 #     mu_sigma_path = os.path.join(config.path.tokenized_cache_path, "mu_sigma.json")
 #     with open(mu_sigma_path, "r") as f:
 #         stats = json.load(f)
@@ -215,17 +212,13 @@ def train_hydrophobic_binary_classification(
     )
     trainer.train()
 
-    # Save the best model after model
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
-    # 保存 PEFT (LoRA adapter)
     model.model.save_pretrained(best_model_path)
 
-    # 保存分类头
     torch.save(model.classifier.state_dict(), f"{best_model_path}/classifier_head.pt")
 
-    # 保存 tokenizer（建议你提前加载并传入 tokenizer）
     tokenizer.save_pretrained(best_model_path)
 
     logger.info(f"The best fine-tuned adapter and classifier [{task}] saved to: {best_model_path}")
@@ -252,7 +245,6 @@ def train_hydrophobic_contrastive_model(
     ).to(device)
 
 
-    # 设置 Trainer
     training_args = TrainingArguments(
         output_dir=checkpoints_dir,
         learning_rate=lr,
@@ -294,10 +286,8 @@ def train_hydrophobic_contrastive_model(
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
-    # 保存 PEFT (LoRA adapter)
     model.model.save_pretrained(best_model_path)
 
-    # 保存 tokenizer（建议你提前加载并传入 tokenizer）
     tokenizer.save_pretrained(best_model_path)
 
     logger.info(f"The best fine-tuned adapter [{task}] saved to: {best_model_path}")
@@ -359,13 +349,10 @@ def train_token_regression(
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
-    # 保存 PEFT (LoRA adapter)
     model.model.save_pretrained(best_model_path)
 
-    # 保存分类头
     torch.save(model.regressor.state_dict(), f"{best_model_path}/regression_head.pt")
 
-    # 保存 tokenizer（建议你提前加载并传入 tokenizer）
     tokenizer.save_pretrained(best_model_path)
 
     logger.info(f"The best fine-tuned adapter and regressor [{task}] saved to: {best_model_path}")
@@ -416,17 +403,13 @@ def train_fitness_regression_head(model_dir, model_src, unfreeze_last_n, emb_src
     except TypeError as e:
         pass
 
-    # Save the best model after model
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
-    # 保存 PEFT (LoRA adapter)
     model.model.save_pretrained(best_model_path)
 
-    # 保存分类头
     torch.save(model.regressor.state_dict(), f"{best_model_path}/regression_head.pt")
 
-    # 保存 tokenizer（建议你提前加载并传入 tokenizer）
     tokenizer.save_pretrained(best_model_path)
 
     logger.info(f"The best trained regressor head [Fitness] saved to: {best_model_path}")

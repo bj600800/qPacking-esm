@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/3
 
-# Description: Continual learning model for token-wise tasks.
+# Description: Model definition
 # ------------------------------------------------------------------------------
 """
 from typing import Optional
@@ -92,11 +92,11 @@ class FocalLoss(nn.Module):
                                    ignore_index=ignore_index)
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        device = x.device  # 保证所有计算都在 x 的 device 上
+        device = x.device
 
         if self.alpha is not None and self.alpha.device != device:
             self.alpha = self.alpha.to(device)
-            self.nll_loss.weight = self.alpha  # 更新 NLLLoss 内部的 weight
+            self.nll_loss.weight = self.alpha
 
         if x.ndim > 2:
             batch_size, seq_len, num_classes = x.shape
@@ -166,9 +166,7 @@ def tokenwise_supervised_contrastive_loss_batch(proj_emb, labels, attention_mask
 
     for b in range(batch_size):
         # process each sequence b in the batch
-        ##
 
-        # get seq b valid tokens using attention mask
         if attention_mask is not None:  # 0 for padding, 1 for else tokens
             valid_mask = attention_mask[b].bool()
         else:
@@ -201,9 +199,9 @@ def tokenwise_supervised_contrastive_loss_batch(proj_emb, labels, attention_mask
         # Denominator without sum
         exp_logits = torch.exp(logits) * logits_mask  # [N, N]
 
-        # softmax for all
+        # softmax
         log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True) + 1e-12)  # [N, N] sum k dim, plus number avoid log0
-        # sum of positive anchor log probabilities
+
         sum_anchor_pos_log_prob = (pos_mask * log_prob).sum(1)  # [N]
         # divide by P^{(i)} eliminates the effect of different number of positive samples for each anchor
         anchor_loss= sum_anchor_pos_log_prob / (pos_mask.sum(1) + 1e-12)  # mask.sum(1) is P^{(i)}: number of positive anchors for each i
@@ -266,13 +264,13 @@ class TokenRegressionModel(nn.Module):
         super().__init__()
         self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
         self.dropout = nn.Dropout(0.1)
-        self.regressor = nn.Linear(self.model.config.hidden_size, 1)  # 每个token一个实数
+        self.regressor = nn.Linear(self.model.config.hidden_size, 1)
         self.loss_fn = MSELoss(reduction="mean")
 
     def forward(self, input_ids, attention_mask=None, labels=None):
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = self.dropout(outputs.last_hidden_state)
-        logits = self.regressor(hidden_states).squeeze(-1)  # shape: (batch_size, seq_len)
+        logits = self.regressor(hidden_states).squeeze(-1)
 
         loss = None
         if labels is not None:
@@ -283,7 +281,7 @@ class TokenRegressionModel(nn.Module):
 
         return TokenClassifierOutput(
             loss=loss,
-            logits=logits  # shape: (batch_size, seq_len)
+            logits=logits
         )
 
 
@@ -292,12 +290,12 @@ class TokenRegressionWeightedModel(nn.Module):
         super().__init__()
         self.model = load_model(model_dir, lora_rank, lora_alpha, lora_dropout)
         self.dropout = nn.Dropout(0.1)
-        self.regressor = nn.Linear(self.model.config.hidden_size, 1)  # 每个 token 一个实数
+        self.regressor = nn.Linear(self.model.config.hidden_size, 1)
 
     def forward(self, input_ids, attention_mask=None, labels=None):
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = self.dropout(outputs.last_hidden_state)
-        logits = self.regressor(hidden_states).squeeze(-1)  # shape: (batch_size, seq_len)
+        logits = self.regressor(hidden_states).squeeze(-1)
 
         loss = None
         if labels is not None:
@@ -351,7 +349,7 @@ class FitnessRegressionModel(nn.Module):
 
         self.loss_fn = MSELoss(reduction="mean")
 
-        # 自动检测层数并解冻最后 n 层
+        # unfrozen the last layers
         if unfreeze_last_n > 0:
             layer_nums = set()
             for name, _ in self.model.named_parameters():
@@ -363,12 +361,12 @@ class FitnessRegressionModel(nn.Module):
                         continue
 
             if not layer_nums:
-                print("❌ 没有找到匹配的 encoder 层名，检查 encoder_prefix 是否正确。")
+                print("❌ No encoder found")
 
             else:
-                total_layers = max(layer_nums) + 1  # 层数是从 0 开始的
+                total_layers = max(layer_nums) + 1
                 target_layers = list(range(total_layers - unfreeze_last_n, total_layers))
-                print(f"🧠 模型总共 {total_layers} 层，将解冻最后 {unfreeze_last_n} 层: {target_layers}")
+                print(f"Total {total_layers} layers, unfrozen the last {unfreeze_last_n} layers: {target_layers}")
 
                 matched_count = 0
                 for name, param in self.model.named_parameters():
@@ -379,17 +377,16 @@ class FitnessRegressionModel(nn.Module):
                     else:
                         param.requires_grad = False
 
-                print(f"\n✅ 解冻完成，共解冻 {matched_count} 个参数项。")
+                print(f"\n✅ unfrozen {matched_count} params")
 
-                # 确保回归头始终训练
+                # Train header
                 for name, param in self.regressor.named_parameters():
                     param.requires_grad = True
 
         else:
-            # 全冻结
             for _, param in self.model.named_parameters():
                 param.requires_grad = False
-            print("❄️ 模型参数已全部冻结。")
+            print("❄️ Frozen all params")
 
     def forward(self, wt_input_ids, wt_attention_mask, mut_input_ids, mut_attention_mask, mutation_pos, labels):
         if self.emb_src == 'cls':
@@ -408,9 +405,9 @@ class FitnessRegressionModel(nn.Module):
         else:
             raise ValueError(f"Unsupported emb_src: {self.emb_src}")
 
-        diff = mut_out - wt_out  # 差向量
+        diff = mut_out - wt_out
 
-        prediction = self.regressor(diff).squeeze(-1)  # 非线性回归头输出标量
+        prediction = self.regressor(diff).squeeze(-1)
 
         loss = None
         if labels is not None:
@@ -422,27 +419,12 @@ class FitnessRegressionModel(nn.Module):
 if __name__ == '__main__':
     from transformers import EsmModel
     from peft import PeftModel, PeftConfig
-    # --------------------------
-    # 加载模型路径（替换为你的路径）
-    # --------------------------
-    best_model_path = "/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"  # 替换为你的 LoRA 模型目录
+    best_model_path = "/checkpoints/80/20250710_hydrophobic-binary_esm2-150_80_v1/best"
     peft_config = PeftConfig.from_pretrained(best_model_path)
-
-    # --------------------------
-    # 1. 加载未微调模型
-    # --------------------------
     model_base = FitnessRegressionModel(best_model_path, 'official')
     model_base.eval()
-
-    # --------------------------
-    # 2. 加载微调后的模型（PEFT）
-    # --------------------------
     model_tuned = FitnessRegressionModel(best_model_path, 'finetuned')
     model_tuned.eval()
-
-    # --------------------------
-    # 准备模拟输入（B=2, L=512）
-    # --------------------------
     batch_size = 2
     seq_len = 512
     model_base_encoder = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
@@ -455,14 +437,11 @@ if __name__ == '__main__':
         'mut_attention_mask': torch.ones((batch_size, seq_len), dtype=torch.long),
     }
 
-    # --------------------------
-    # 验证 forward 传播
-    # --------------------------
     with torch.no_grad():
         base_out = model_base(**dummy_input)
         tuned_out = model_tuned(**dummy_input)
-        print(f"未微调模型输出: {base_out}")  # torch.Size([2])
-        print(f"微调后模型输出: {tuned_out}")  # torch.Size([2])
+        print(f"Before finetuning: {base_out}")  # torch.Size([2])
+        print(f"After finetuning: {tuned_out}")  # torch.Size([2])
 
 
 
