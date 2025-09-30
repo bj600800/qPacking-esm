@@ -297,19 +297,7 @@ def main():
     elif task == 'hydrophobic_contrastive':
         hydrophobic_contrastive(config, task=task)
 
-    elif task == 'degree':
-        token_regression(config, task=task)
-
-    elif task == 'area':
-        token_regression(config, task=task)
-
-    elif task == 'rsa':
-        token_regression(config, task=task)
-
-    elif task == 'order':
-        token_regression(config, task=task)
-
-    elif task == 'centrality':
+    elif task in ['degree', 'area', 'rsa', 'order', 'centrality']:
         token_regression(config, task=task)
 
     elif task == 'fitness':
