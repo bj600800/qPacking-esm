@@ -4,16 +4,14 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/9/29
 
-# Description: 【更正】Model headers for classification, regression and contrastive learning
+# Description: Model headers for classification, regression and contrastive learning
 # ------------------------------------------------------------------------------
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import MSELoss, CrossEntropyLoss
-from transformers.modeling_outputs import TokenClassifierOutput, ModelOutput
-from dataclasses import dataclass
-from typing import Optional
+from transformers.modeling_outputs import TokenClassifierOutput
 
 class ClassificationHead(nn.Module):
     def __init__(self, hidden_size, num_class):
@@ -63,7 +61,3 @@ class ContrastiveHead(nn.Module):
             loss = self.loss_fn(proj_emb, labels, attention_mask)
         return TokenClassifierOutput(loss=loss, logits=proj_emb)
 
-@dataclass
-class RegressionOutput(ModelOutput):
-    loss: Optional[torch.FloatTensor] = None
-    prediction: torch.FloatTensor = None

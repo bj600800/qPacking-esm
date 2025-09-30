@@ -4,15 +4,21 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/9/29
 
-# Description: 【更正】Model for fitness regression tasks
+# Description: Model for fitness regression tasks
 # ------------------------------------------------------------------------------
 """
+from typing import Optional
+from dataclasses import dataclass
 from transformers import EsmModel
 from peft import PeftConfig, PeftModel
 import torch.nn as nn
 import torch
+from transformers.modeling_outputs import ModelOutput
 
-from qpacking.model.heads import RegressionOutput
+@dataclass
+class RegressionOutput(ModelOutput):
+    loss: Optional[torch.FloatTensor] = None
+    prediction: torch.FloatTensor = None
 
 class FitnessRegressionModel(nn.Module):
     def __init__(self, model_dir, model_src, unfreeze_last_n, emb_src, params):
@@ -36,9 +42,15 @@ class FitnessRegressionModel(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(hidden, 1)
         )
-        params.unfreeze_backbone(self.model, model_prefix, unfreeze_last_n)
-        for p in self.regressor.parameters(): p.requires_grad = True
+
         self.loss_fn = nn.MSELoss()
+
+        params.unfreeze_backbone(self.model, model_prefix, unfreeze_last_n)
+
+        # Train header
+        for name, param in self.regressor.named_parameters():
+            param.requires_grad = True
+
 
     def forward(self, wt_input_ids, wt_attention_mask, mut_input_ids, mut_attention_mask, mutation_pos, labels=None):
         def extract(x_ids, x_mask):
@@ -53,5 +65,7 @@ class FitnessRegressionModel(nn.Module):
                 raise ValueError("emb_src must be 'cls' or 'pos'")
         diff = extract(mut_input_ids, mut_attention_mask) - extract(wt_input_ids, wt_attention_mask)
         pred = self.regressor(diff).squeeze(-1)
-        loss = self.loss_fn(pred, labels) if labels is not None else None
+        loss = None
+        if labels is not None:
+            loss = self.loss_fn(pred, labels)
         return RegressionOutput(loss=loss, prediction=pred)

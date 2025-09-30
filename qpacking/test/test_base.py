@@ -12,8 +12,7 @@ import pytest
 from qpacking.model.base import BaseESMLoraModel
 
 
-@pytest.mark.basic
-def test_base_esmlora_forward_real_model():
+def test_base_model():
     model_path = "/Users/douzhixin/Developer/qPacking/data/checkpoints/esm2_t30_150M_UR50D"
 
     model = BaseESMLoraModel(

@@ -4,13 +4,11 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/9/29
 
-# Description: 【更正】models for token-level classification, regression and contrastive learning tasks.
+# Description: Models for token-level classification, regression and contrastive learning tasks.
 # ------------------------------------------------------------------------------
 """
-import torch
-import torch.nn as nn
-from .base import BaseESMLoraModel
-from .heads import ClassificationHead, RegressionHead, ContrastiveHead, RegressionOutput
+from qpacking.model.base import BaseESMLoraModel
+from qpacking.model.heads import ClassificationHead, RegressionHead, ContrastiveHead
 
 class TokenClassificationModel(BaseESMLoraModel):
     def __init__(self, model_dir, num_class, lora_rank, lora_alpha, lora_dropout):
