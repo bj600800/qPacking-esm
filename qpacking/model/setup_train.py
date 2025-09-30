@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/6/5
 
-# Description: setup trainer for fine-tuning esm-2
+# Description: model wrappers and training setup
 # ------------------------------------------------------------------------------
 """
 
