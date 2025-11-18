@@ -5,7 +5,7 @@ path:
   pkl_file: /Users/douzhixin/Developer/qPacking/data/test/results_class.pkl
 
   # Output
-  checkpoints_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking
+  checkpoints_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking2-single
   logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
   tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/test/tokenized_cache  # root path
 

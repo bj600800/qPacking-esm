@@ -11,7 +11,7 @@ from qpacking.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-file_path = r"/home/u2600215/qpacking/data/work/80_seq/80_resultDB.txt"
+file_path = r"/home/u2600215/qpacking2-single/data/work/80_seq/80_resultDB.txt"
 df = pd.read_csv(file_path, sep=' ', header=None, names=["col1", "col2", "value"])
 bins = [0, 0.25, 0.5, 0.75, 1.0]
 # x label names
@@ -38,6 +38,6 @@ for i, v in enumerate(percentage.values):
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.tight_layout()  # layout style
-output_path = r"/home/u2600215/qpacking/data/work/80_seq/heatmap.tif"
+output_path = r"/home/u2600215/qpacking2-single/data/work/80_seq/heatmap.tif"
 plt.savefig(output_path, format='tif', dpi=300)
 logger.info(f"output image saved to {output_path}")
