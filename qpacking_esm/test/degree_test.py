@@ -14,36 +14,33 @@ from transformers import EsmTokenizer, EsmModel
 from peft import PeftModel, PeftConfig
 
 # ==== 1. 路径配置 ====
-best_model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/80/20250721_degree_esm2-150_80_v1/best"
+best_model_path = "/Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints/degree/best"
 
 
 # ==== 2. 加载 tokenizer ====
 tokenizer = EsmTokenizer.from_pretrained(best_model_path)
 
-# ==== 3. 加载 PEFT adapter 配置与主模型 ====
+# ==== 2. 加载 PEFT adapter 与 backbone ====
 peft_config = PeftConfig.from_pretrained(best_model_path)
 base_model = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
-base_model = PeftModel.from_pretrained(base_model, best_model_path)
+backbone = PeftModel.from_pretrained(base_model, best_model_path)
 
-# ==== 4. 定义 Degree 回归模型头 ====
+# ==== 3. 复用训练头 ====
 class HydrophobicDegreeRegressionModel(nn.Module):
-    def __init__(self, backbone):
+    def __init__(self, backbone, regressor_path):
         super().__init__()
-        self.model = backbone
-        self.dropout = nn.Dropout(0.1)
-        self.regressor = nn.Linear(self.model.config.hidden_size, 1)
+        self.backbone = backbone
+        self.head = nn.Linear(backbone.config.hidden_size, 1)
+        self.head.load_state_dict(torch.load(regressor_path, weights_only=True))
 
     def forward(self, input_ids, attention_mask=None):
-        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = self.dropout(outputs.last_hidden_state)
-        preds = self.regressor(hidden_states).squeeze(-1)
-        return preds
+        hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+        return self.head(hidden).squeeze(-1)
 
-# ==== 5. 初始化模型并加载回归头 ====
+# ==== 4. 初始化模型 ====
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-model = HydrophobicDegreeRegressionModel(backbone=base_model)
-model.regressor.load_state_dict(torch.load(f"{best_model_path}/regression_head.pt", map_location=device))
-model.eval().to(device)
+model = HydrophobicDegreeRegressionModel(backbone, f"{best_model_path}/regression_head.pt").to(device)
+model.eval()
 
 # ==== 6. 输入序列 ====
 sequences = ["IRGVNLGSLFVFEPWIANNEWNTMGCGGQQSEFDCVMNTGQERSDAAFQKHWDTWITEGDLDEMMSYGINTIRIPVGYWLDESLVDQNSEHFPRGAVKYLIRLCGWASDRGFYIILDQHGAPGAQVAKNSFTGQFANTPGFYNDYQYGRAVKFLEFLRKLAHDNNELRNVGTIELVNEPTNWDSSVQSLRSTFYKNGYNAIRNVEKSLGVSANNYFHIQMMSSLWGSGNPTEFLDDTYFTAFDDHRYLKWANKNDVPWTHDSYISTSCNDNRNGDASGPTIVGEWSISPPDEIENSDDWNRDTQKDFYKKWFAAQVHAYEKNTAGWVFWTWKAQLGDYRWSYRDGVIAGVIPRDLNSIASS"]

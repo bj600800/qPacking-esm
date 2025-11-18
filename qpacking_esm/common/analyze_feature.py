@@ -15,7 +15,7 @@ import numpy as np
 from collections import Counter
 from math import comb
 
-from qpacking.common import logger
+from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 

@@ -17,40 +17,33 @@ import torch
 import torch.nn as nn
 from transformers import EsmModel, EsmTokenizer
 from peft import PeftModel, PeftConfig
-
+from qpacking_esm.model.heads import ClassificationHead
 # ==== 1. 配置路径 ====
-best_model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking_esm/hydrophobic_binary/best"  # 修改为你保存模型的目录
+best_model_path = "/Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints/hydrophobic_binary/best"  # 修改为你保存模型的目录
 
 # ==== 2. 加载 tokenizer ====
 tokenizer = EsmTokenizer.from_pretrained(best_model_path)
 
-# ==== 3. 加载 PEFT adapter 配置并初始化 backbone ====
+# 1️⃣ 加载 backbone + LoRA
 peft_config = PeftConfig.from_pretrained(best_model_path)
 base_model = EsmModel.from_pretrained(peft_config.base_model_name_or_path, add_pooling_layer=False)
-base_model = PeftModel.from_pretrained(base_model, best_model_path)
+backbone = PeftModel.from_pretrained(base_model, best_model_path)
 
-
-# ==== 4. 包装完整分类模型 ====
-class HydrophobicBinaryClassificationModel(nn.Module):
-    def __init__(self, backbone, num_class=2):
+# 2️⃣ 复用训练时的分类头
+class TokenClassificationModel(nn.Module):
+    def __init__(self, backbone, classifier_head_path):
         super().__init__()
-        self.model = backbone
-        self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(self.model.config.hidden_size, num_class)
+        self.backbone = backbone
+        self.head = ClassificationHead(backbone.config.hidden_size, 2)
+        self.head.classifier.load_state_dict(torch.load(classifier_head_path, weights_only=True))
 
-    def forward(self, input_ids, attention_mask):
-        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = self.dropout(outputs.last_hidden_state)
-        logits = self.classifier(hidden_states)
+    def forward(self, input_ids, attention_mask=None):
+        hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+        logits = self.head(hidden)
         return logits
 
-# ==== 5. 初始化完整模型并加载分类头 ====
-# binary
-model = HydrophobicBinaryClassificationModel(backbone=base_model, num_class=2)
-model.classifier.load_state_dict(torch.load(f"{best_model_path}/classifier_head.pt", weights_only=True, map_location=torch.device('mps')))
 
-# contrastive
-# model = HydrophobicContrastiveModel(backbone=base_model)
+model = TokenClassificationModel(backbone, f"{best_model_path}/classifier_head.pt")
 model.eval()
 
 # ==== 6. 输入示例序列 ====
@@ -62,7 +55,7 @@ attention_mask = encoded["attention_mask"]
 # ==== 7. 模型推理 ====
 with torch.no_grad():
     logits = model(input_ids=input_ids, attention_mask=attention_mask)
-    predictions = torch.argmax(logits, dim=-1)
+    predictions = torch.argmax(logits.logits, dim=-1)
 
 # ==== 8. 输出结果 ====
 print("Predicted labels:", predictions.tolist()[0][1:-1])

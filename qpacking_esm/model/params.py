@@ -7,7 +7,7 @@
 # Description: model params processing
 # ------------------------------------------------------------------------------
 """
-from qpacking.common import logger
+from qpacking_esm.common import logger
 logger = logger.setup_log(name=__name__)
 
 def print_trainable_parameters(model):

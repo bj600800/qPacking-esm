@@ -7,8 +7,8 @@
 # Description: Models for token-level classification, regression and contrastive learning tasks.
 # ------------------------------------------------------------------------------
 """
-from qpacking.model.base import BaseESMLoraModel
-from qpacking.model.heads import ClassificationHead, RegressionHead, ContrastiveHead
+from qpacking_esm.model.base import BaseESMLoraModel
+from qpacking_esm.model.heads import ClassificationHead, RegressionHead
 
 class TokenClassificationModel(BaseESMLoraModel):
     def __init__(self, model_dir, num_class, lora_rank, lora_alpha, lora_dropout):
@@ -27,12 +27,3 @@ class TokenRegressionModel(BaseESMLoraModel):
     def forward(self, input_ids, attention_mask=None, labels=None):
         hidden = self.encode(input_ids, attention_mask)
         return self.head(hidden, labels)
-
-class HydrophobicContrastiveModel(BaseESMLoraModel):
-    def __init__(self, model_dir, lora_rank, lora_alpha, lora_dropout, proj_dim, contrastive_loss_fn):
-        super().__init__(model_dir, lora_rank, lora_alpha, lora_dropout)
-        self.head = ContrastiveHead(self.hidden_size, proj_dim, contrastive_loss_fn)
-
-    def forward(self, input_ids, attention_mask=None, labels=None):
-        hidden = self.encode(input_ids, attention_mask)
-        return self.head(hidden, labels, attention_mask)

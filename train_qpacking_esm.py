@@ -13,11 +13,11 @@ import mlflow
 from datetime import datetime
 
 from qpacking_esm.data import dataset
-from qpacking.model.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
+from qpacking_esm.model.setup_train import (train_hydrophobic_binary_classification,
                                         train_token_regression, train_fitness_regression_head)
 
 from train_configs import Config
-from qpacking.common import logger
+from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -73,59 +73,6 @@ def hydrophobic_binary(config, task):
         logger.error("Failed to start model — argument mismatch!")
         logger.error(str(e))
         raise
-
-def hydrophobic_contrastive(config, task):
-    dataset_args = {
-        "fasta_file": config.path.fasta_file,
-        "pkl_file": config.path.pkl_file,
-        "model_dir": config.path.model_dir,
-        "tokenized_cache_path": config.path.tokenized_cache_path,
-        "test_ratio": config.training_args.test_ratio,
-        "batch_size": config.training_args.batch_size,
-        "seed": config.training_args.seed,
-    }
-
-    # load data
-    try:
-        train_dataloader, valid_dataloader, tokenizer = dataset.run_structure_encoder(**dataset_args, task=task)
-    except Exception as e:
-        logger.error("Failed to load dataset with dataset_args!")
-        logger.error(str(e))
-        raise
-
-    model_args = {
-        "model_dir": config.path.model_dir,
-        "checkpoints_dir": os.path.join(config.path.checkpoints_dir, task),
-        "logging_dir": config.path.logging_dir,
-        "batch_size": config.training_args.batch_size,
-        "num_epochs": config.training_args.num_epochs,
-        "seed": config.training_args.seed,
-        "lr": config.training_args.lr,
-        "proj_dim": config.training_args.proj_dim,
-        "train_dataloader": train_dataloader,
-        "valid_dataloader": valid_dataloader,
-        "lora_rank": config.lora.rank,
-        "lora_alpha": config.lora.alpha,
-        "lora_dropout": config.lora.dropout,
-        "eval_steps": config.training_args.eval_steps,
-        "save_steps": config.training_args.save_steps,
-        "save_total_limit": config.training_args.save_total_limit,
-        "eval_strategy": config.training_args.eval_strategy,
-        "save_strategy": config.training_args.save_strategy,
-        "logging_strategy": config.training_args.logging_strategy,
-        "logging_steps": config.training_args.logging_steps,
-        "reporter": config.training_args.reporter,
-        "metric_for_best_model": config.training_args.metric_for_best_model,
-        "greater_is_better": config.training_args.greater_is_better
-    }
-
-    try:
-        train_hydrophobic_contrastive_model(**model_args, tokenizer=tokenizer, task=task)
-    except TypeError as e:
-        logger.error("Failed to start model — argument mismatch!")
-        logger.error(str(e))
-        raise
-
 
 def token_regression(config, task):
     dataset_args = {
@@ -271,7 +218,7 @@ def main():
         '--task',
         type=str,
         required=True,
-        choices=['hydrophobic_binary', 'hydrophobic_contrastive', 'degree', 'area',
+        choices=['hydrophobic_binary', 'degree', 'area',
                  'rsa', 'order', 'centrality', 'fitness'],
         help="Training task selection: [hydrophobic_binary, hydrophobic_contrastive]"
     )
@@ -292,9 +239,6 @@ def main():
     log.log()
     if task == 'hydrophobic_binary':
         hydrophobic_binary(config, task=task)
-
-    elif task == 'hydrophobic_contrastive':
-        hydrophobic_contrastive(config, task=task)
 
     elif task in ['degree', 'area', 'rsa', 'order', 'centrality']:
         token_regression(config, task=task)

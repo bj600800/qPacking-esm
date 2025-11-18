@@ -9,7 +9,7 @@
 """
 import yaml
 from dataclasses import dataclass
-from qpacking.common import logger
+from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -22,7 +22,7 @@ class PathConfig:
     tokenized_cache_path: str
     fasta_file: str
     pkl_file: str
-    model_src: str
+
 
 @dataclass
 class LoRAConfig:
@@ -53,10 +53,6 @@ class TrainingArgsHydrophobicBinaryConfig(TrainingArgsHydrophobicConfig):
     num_class: int
 
 @dataclass
-class TrainingArgsHydrophobicContrastiveConfig(TrainingArgsHydrophobicConfig):
-    proj_dim: int
-
-@dataclass
 class PathConfigFitness(PathConfig):
     model_src: str
 
@@ -72,12 +68,6 @@ class ConfigHydrophobicBinary:
     path: PathConfig
     lora: LoRAConfig
     training_args: TrainingArgsHydrophobicBinaryConfig
-
-@dataclass
-class ConfigHydrophobicContrastive:
-    path: PathConfig
-    lora: LoRAConfig
-    training_args: TrainingArgsHydrophobicContrastiveConfig
 
 @dataclass
 class ConfigDegree:
@@ -117,17 +107,12 @@ class ConfigFitness:
 def from_yaml(path: str, task: str):
     with open(path, 'r') as f:
         raw = yaml.safe_load(f)
+
     if task == "hydrophobic_binary":
         return ConfigHydrophobicBinary(
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),
             training_args=TrainingArgsHydrophobicBinaryConfig(**raw['training_args'])
-        )
-    elif task == "hydrophobic_contrastive":
-        return ConfigHydrophobicContrastive(
-            path=PathConfig(**raw['path']),
-            lora=LoRAConfig(**raw['lora']),
-            training_args=TrainingArgsHydrophobicContrastiveConfig(**raw['training_args'])
         )
     elif task == "degree":
         return ConfigDegree(

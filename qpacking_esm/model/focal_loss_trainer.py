@@ -9,7 +9,7 @@
 """
 from transformers import Trainer
 import torch
-from qpacking.model.loss import FocalLoss
+from qpacking_esm.model.focal_loss import FocalLoss
 
 class FocalLossTrainer(Trainer):
     def __init__(self, *args, focal_gamma=2.0, focal_alpha=None, **kwargs):

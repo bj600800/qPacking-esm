@@ -47,17 +47,3 @@ class RegressionHead(nn.Module):
             else:
                 loss = self.loss_fn(active_logits, active_labels)
         return TokenClassifierOutput(loss=loss, logits=logits)
-
-class ContrastiveHead(nn.Module):
-    def __init__(self, hidden_size, proj_dim, contrastive_loss_fn):
-        super().__init__()
-        self.proj = nn.Linear(hidden_size, proj_dim)
-        self.loss_fn = contrastive_loss_fn
-
-    def forward(self, hidden_states, labels=None, attention_mask=None):
-        proj_emb = F.normalize(self.proj(hidden_states), dim=-1)
-        loss = None
-        if labels is not None:
-            loss = self.loss_fn(proj_emb, labels, attention_mask)
-        return TokenClassifierOutput(loss=loss, logits=proj_emb)
-

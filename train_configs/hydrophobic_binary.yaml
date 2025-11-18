@@ -1,13 +1,13 @@
 path:
   # Input
-  model_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D
-  fasta_file: /Users/douzhixin/Developer/qPacking/data/test/sequence.fasta
-  pkl_file: /Users/douzhixin/Developer/qPacking/data/test/results_class.pkl
+  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
+  fasta_file: /Users/douzhixin/Developer/qPacking-esm/data/test/sequence.fasta
+  pkl_file: /Users/douzhixin/Developer/qPacking-esm/data/test/results_class.pkl
 
   # Output
-  checkpoints_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking_esm
-  logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
-  tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/test/tokenized_cache
+  checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
+  logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/logs
+  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/test/tokenized_cache
 
 
 lora:
@@ -19,7 +19,7 @@ training_args:
   seed: 3407
   lr: 2.0e-5
   num_class: 2
-  num_epochs: 2
+  num_epochs: 1
   batch_size: 8
   test_ratio: 0.1
   eval_strategy: steps
