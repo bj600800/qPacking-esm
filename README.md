@@ -18,6 +18,7 @@ pip install melodia-py==0.1.4
 pip install umap-learn
 pip install pytest
 pip install colorlog
+pip install biotite
 
 Tools:
 conda install -c conda-forge -c bioconda foldseek
