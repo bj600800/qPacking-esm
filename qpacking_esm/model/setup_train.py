@@ -18,7 +18,6 @@ from transformers import (
 from qpacking_esm.model.models import TokenClassificationModel, TokenRegressionModel
 from qpacking_esm.model.FitnessRegression import FitnessRegressionModel
 from qpacking_esm.model import params
-from qpacking_esm.model.focal_loss import tokenwise_supervised_contrastive_batch_loss
 from qpacking_esm.model.metrics import compute_binary_metrics, compute_regression_metrics
 from qpacking_esm.model.save import SaveCompleteModelCallback
 from qpacking_esm.common import logger

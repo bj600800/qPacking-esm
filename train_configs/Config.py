@@ -20,7 +20,7 @@ class PathConfig:
     checkpoints_dir: str
     logging_dir: str
     tokenized_cache_path: str
-    fasta_file: str
+    seq_pkl: str
     pkl_file: str
 
 
@@ -108,7 +108,7 @@ def from_yaml(path: str, task: str):
     with open(path, 'r') as f:
         raw = yaml.safe_load(f)
 
-    if task == "hydrophobic_binary":
+    if task == "position":
         return ConfigHydrophobicBinary(
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),
@@ -172,10 +172,8 @@ class ConfigLogger:
         self.logger.info(f"\n{'='*10} [Task: {self.task}] Config Summary {'='*10}")
         self._log_common()
 
-        if self.task == "hydrophobic_binary":
+        if self.task == "position":
             self._log_hydrophobic_binary()
-        elif self.task == "hydrophobic_contrastive":
-            self._log_hydrophobic_contrastive()
         elif self.task == "degree":
             self._log_degree()
         elif self.task == 'area':
@@ -184,8 +182,6 @@ class ConfigLogger:
             self._log_rsa()
         elif self.task == 'order':
             self._log_order()
-        elif self.task == 'centrality':
-            self._log_centrality()
         elif self.task == "fitness":
             self._log_fitness()
         else:
@@ -212,11 +208,6 @@ class ConfigLogger:
         self.logger.info(f"num_class: {self.config.training_args.num_class}")
 
 
-    def _log_hydrophobic_contrastive(self):
-        self.logger.info("[Hydrophobic-contrastive Task Specific Config]")
-        self.logger.info(f"proj_dim: {self.config.training_args.proj_dim}")
-
-
     def _log_degree(self):
         pass
 
@@ -227,9 +218,6 @@ class ConfigLogger:
         pass
 
     def _log_order(self):
-        pass
-
-    def _log_centrality(self):
         pass
 
     def _log_fitness(self):

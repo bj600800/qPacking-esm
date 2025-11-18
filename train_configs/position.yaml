@@ -1,8 +1,8 @@
 path:
   # Input
   model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
-  fasta_file: /Users/douzhixin/Developer/qPacking-esm/data/test/sequence.fasta
-  pkl_file: /Users/douzhixin/Developer/qPacking-esm/data/test/results_class.pkl
+  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/test_data/feature_resid_name.pkl
+  pkl_file: /Users/douzhixin/Developer/qPacking-esm/data/test/test_data/feature_position.pkl
 
   # Output
   checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints

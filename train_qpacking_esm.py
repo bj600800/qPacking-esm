@@ -24,7 +24,7 @@ logger = logger.setup_log(name=__name__)
 
 def hydrophobic_binary(config, task):
     dataset_args = {
-        "fasta_file": config.path.fasta_file,
+        "seq_pkl": config.path.seq_pkl,
         "pkl_file": config.path.pkl_file,
         "model_dir": config.path.model_dir,
         "tokenized_cache_path": config.path.tokenized_cache_path,
@@ -76,7 +76,7 @@ def hydrophobic_binary(config, task):
 
 def token_regression(config, task):
     dataset_args = {
-        "fasta_file": config.path.fasta_file,
+        "fasta_file": config.path.seq_pkl,
         "pkl_file": config.path.pkl_file,
         "model_dir": config.path.model_dir,
         "tokenized_cache_path": config.path.tokenized_cache_path,
@@ -127,7 +127,7 @@ def token_regression(config, task):
 
 def fitness_regression(config, task):
     dataset_args = {
-        "model_dir": config.path.fasta_file,
+        "model_dir": config.path.seq_pkl,
         "pkl_file": config.path.pkl_file,
         "tokenized_cache_path": config.path.tokenized_cache_path,
         "test_ratio": config.training_args.test_ratio,
@@ -218,9 +218,9 @@ def main():
         '--task',
         type=str,
         required=True,
-        choices=['hydrophobic_binary', 'degree', 'area',
-                 'rsa', 'order', 'centrality', 'fitness'],
-        help="Training task selection: [hydrophobic_binary, hydrophobic_contrastive]"
+        choices=['position', 'degree', 'area',
+                 'rsa', 'order', 'fitness'],
+        help="Training task selection"
     )
 
     parser.add_argument(
@@ -237,7 +237,7 @@ def main():
     config = Config.from_yaml(yaml_path, task)
     log = Config.ConfigLogger(config, task)
     log.log()
-    if task == 'hydrophobic_binary':
+    if task == 'position':
         hydrophobic_binary(config, task=task)
 
     elif task in ['degree', 'area', 'rsa', 'order', 'centrality']:

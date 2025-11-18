@@ -64,32 +64,6 @@ def analyze_class(load_existing_results):
     print('mean_same_cluster_ratio: ', mean_same_cluster_ratio)
     print('mean_different_cluster_ratio: ', str(1 - mean_same_cluster_ratio))
 
-
-def split_feature(feature, key, data_type):
-    single_feature = {}
-    for k, v in feature.items():
-        if key=='class':
-            single_feature[k] = v[key]
-        else:
-            if data_type == 'float32':
-                single_feature[k] = {key: float(value) for key, value in v[key].items()}
-            elif data_type == 'int':
-                single_feature[k] = {key: value for key, value in v[key].items()}
-    return single_feature
-
-def run_split(input_pkl):
-    dir_path = os.path.dirname(input_pkl)
-    file_name = os.path.basename(input_pkl)
-    existing_results = load_existing_results(input_pkl)
-    feature_names = {'class': 'int', 'area': 'float32', 'degree': 'int', 'rsa': 'float32', 'order': 'float32', 'centrality': 'float32'}
-    for name, data_type in tqdm(feature_names.items()):
-        new_pkl = os.path.join(dir_path, file_name.split('.')[0]+f'_{name}.pkl')
-        new_feature = split_feature(existing_results, name, data_type)
-        with open(new_pkl, "wb") as f:
-            pickle.dump(new_feature, f)
-    # existing_results = load_existing_results(r"/Users/douzhixin/Developer/qPacking/data/test/results_centrality.pkl")
-    # print(existing_results)
-
 def prepare_plot_feature(load_existing_results, feature_name='centrality', bins=10):
     data = [i for protein_id, feature in load_existing_results.items() for i in feature[feature_name].values()]
     counts_density, bin_edges = np.histogram(data, bins=bins, density=True)
@@ -108,20 +82,3 @@ def prepare_plot_feature(load_existing_results, feature_name='centrality', bins=
         print(i)
 
     # print("Sum of frequencies:", frequencies.sum())
-
-
-
-if __name__ == '__main__':
-    pkl_file = r"/Users/douzhixin/Developer/qPacking/data/feature/80/80_results.pkl"
-    fasta_path = r"/Users/douzhixin/Developer/qPacking/data/sequence/complete_tim_80.fasta"
-    data = load_existing_results(pkl_file)
-    prepare_plot_feature(data)
-
-    # analyze_class(data)
-    # run_split(pkl_file)
-
-    # data = load_existing_results(degree_pkl)
-    # print(data)
-    # input()
-    # degree_data = [d for p, f in data.items() for i, d in f.items()]
-    # plot_degree(degree_data)
