@@ -204,7 +204,7 @@ class ConfigLogger:
                 self.logger.info(f"{k}: {v}")
 
     def _log_hydrophobic_binary(self):
-        self.logger.info("[Hydrophobic-binary Task Specific Config]")
+        self.logger.info("[Position Task Specific Config]")
         self.logger.info(f"num_class: {self.config.training_args.num_class}")
 
 

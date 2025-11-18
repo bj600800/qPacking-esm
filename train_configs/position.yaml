@@ -1,13 +1,13 @@
 path:
   # Input
   model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
-  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/test_data/feature_resid_name.pkl
-  pkl_file: /Users/douzhixin/Developer/qPacking-esm/data/test/test_data/feature_position.pkl
+  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/feature/all/feature_resid_name.pkl
+  pkl_file: /Users/douzhixin/Developer/qPacking-esm/data/feature/all/feature_position.pkl
 
   # Output
-  checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
-  logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/logs
-  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/test/tokenized_cache
+  checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/all/20251118_position
+  logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/logs/20251118
+  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/feature/all/tokenized_cache
 
 
 lora:
@@ -20,15 +20,15 @@ training_args:
   lr: 2.0e-5
   num_class: 2
   num_epochs: 1
-  batch_size: 8
+  batch_size: 16
   test_ratio: 0.1
   eval_strategy: steps
   logging_strategy: steps
-  eval_steps: 1
-  save_steps: 1
+  eval_steps: 10000
+  save_steps: 10000
   save_strategy: steps
   save_total_limit: 3
-  logging_steps: 1
+  logging_steps: 100
   reporter: mlflow
   metric_for_best_model: accuracy
   greater_is_better: True
