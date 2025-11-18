@@ -19,7 +19,7 @@ from transformers import EsmModel, EsmTokenizer
 from peft import PeftModel, PeftConfig
 
 # ==== 1. 配置路径 ====
-best_model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking2-single/hydrophobic_binary/best"  # 修改为你保存模型的目录
+best_model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking_esm/hydrophobic_binary/best"  # 修改为你保存模型的目录
 
 # ==== 2. 加载 tokenizer ====
 tokenizer = EsmTokenizer.from_pretrained(best_model_path)

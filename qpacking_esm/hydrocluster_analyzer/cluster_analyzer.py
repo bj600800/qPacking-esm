@@ -19,7 +19,7 @@ from Bio.PDB import PDBParser
 from Bio.PDB.DSSP import DSSP
 from biotite.structure import sasa
 
-# from qpacking2-single.common import visualization
+# from qpacking_esm.common import visualization
 from qpacking.common.logger import setup_log
 
 logger = setup_log(name=__name__, enable_file_log=False)

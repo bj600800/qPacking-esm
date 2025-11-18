@@ -8,7 +8,7 @@ path:
   fasta_file: /Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss.fasta
 
   # Output
-  checkpoints_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking2-single
+  checkpoints_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking_esm
   logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
   tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss_tokenized_cache
 

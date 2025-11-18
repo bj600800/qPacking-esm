@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/2/14
 
-# Description: train qPacking
+# Description: train qPacking-esm
 # ------------------------------------------------------------------------------
 """
 import os
@@ -12,7 +12,7 @@ import argparse
 import mlflow
 from datetime import datetime
 
-from qpacking.data import dataset
+from qpacking_esm.data import dataset
 from qpacking.model.setup_train import (train_hydrophobic_binary_classification, train_hydrophobic_contrastive_model,
                                         train_token_regression, train_fitness_regression_head)
 
