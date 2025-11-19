@@ -1,12 +1,12 @@
 path:
   # Input
-  model_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D
-  fasta_file: /Users/douzhixin/Developer/qPacking/data/test/sequence.fasta
-  pkl_file: /Users/douzhixin/Developer/qPacking/data/test/results_rsa.pkl
+  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
+  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_resid_name.pkl
+  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_rsa.pkl
 
   # Output
-  checkpoints_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/qpacking_esm
-  logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
+  checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
+  logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/logs
   tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/test/tokenized_cache  # root path
 
 
@@ -16,6 +16,7 @@ lora:
   dropout: 0.05
 
 training_args:
+  task: rsa
   seed: 3407
   lr: 2.0e-5
   num_epochs: 2
@@ -29,5 +30,5 @@ training_args:
   save_total_limit: 3
   logging_steps: 1
   reporter: mlflow
-  metric_for_best_model: MSE
-  greater_is_better: False
+  metric_for_best_model: eval_Spearman
+  greater_is_better: True

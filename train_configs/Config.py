@@ -21,7 +21,7 @@ class PathConfig:
     logging_dir: str
     tokenized_cache_path: str
     seq_pkl: str
-    pkl_file: str
+    feature_pkl: str
 
 
 @dataclass
@@ -32,6 +32,7 @@ class LoRAConfig:
 
 @dataclass
 class TrainingArgsHydrophobicConfig:
+    task: str
     seed: int
     lr: float
     num_epochs: int
@@ -53,7 +54,13 @@ class TrainingArgsHydrophobicBinaryConfig(TrainingArgsHydrophobicConfig):
     num_class: int
 
 @dataclass
-class PathConfigFitness(PathConfig):
+class PathConfigFitness():
+    model_dir: str
+    checkpoints_dir: str
+    logging_dir: str
+    tokenized_cache_path: str
+    seq_fasta: str
+    feature_pkl: str
     model_src: str
 
 @dataclass
@@ -70,31 +77,7 @@ class ConfigHydrophobicBinary:
     training_args: TrainingArgsHydrophobicBinaryConfig
 
 @dataclass
-class ConfigDegree:
-    path: PathConfig
-    lora: LoRAConfig
-    training_args: TrainingArgsHydrophobicConfig
-
-@dataclass
-class ConfigArea:
-    path: PathConfig
-    lora: LoRAConfig
-    training_args: TrainingArgsHydrophobicConfig
-
-@dataclass
-class ConfigRsa:
-    path: PathConfig
-    lora: LoRAConfig
-    training_args: TrainingArgsHydrophobicConfig
-
-@dataclass
-class ConfigOrder:
-    path: PathConfig
-    lora: LoRAConfig
-    training_args: TrainingArgsHydrophobicConfig
-
-@dataclass
-class ConfigCentrality:
+class ConfigFeature:
     path: PathConfig
     lora: LoRAConfig
     training_args: TrainingArgsHydrophobicConfig
@@ -104,60 +87,34 @@ class ConfigFitness:
     path: PathConfigFitness
     training_args: TrainingArgsFitnessConfig
 
-def from_yaml(path: str, task: str):
+def from_yaml(path: str):
     with open(path, 'r') as f:
         raw = yaml.safe_load(f)
+
+    task = raw.get('training_args', {}).get('task', None)
 
     if task == "position":
         return ConfigHydrophobicBinary(
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),
             training_args=TrainingArgsHydrophobicBinaryConfig(**raw['training_args'])
-        )
-    elif task == "degree":
-        return ConfigDegree(
-            path=PathConfig(**raw['path']),
-            lora=LoRAConfig(**raw['lora']),
-            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
-        )
+        ), task
 
-    elif task == "area":
-        return ConfigArea(
+    elif task in ["degree", "rsa", "bsa", "order"]:
+        return ConfigFeature(
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),
             training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
-        )
-
-    elif task == "rsa":
-        return ConfigRsa(
-            path=PathConfig(**raw['path']),
-            lora=LoRAConfig(**raw['lora']),
-            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
-        )
-
-    elif task == "order":
-        return ConfigOrder(
-            path=PathConfig(**raw['path']),
-            lora=LoRAConfig(**raw['lora']),
-            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
-        )
-
-    elif task == "centrality":
-        return ConfigCentrality(
-            path=PathConfig(**raw['path']),
-            lora=LoRAConfig(**raw['lora']),
-            training_args=TrainingArgsHydrophobicConfig(**raw['training_args'])
-        )
+        ),task
 
     elif task == "fitness":
         return ConfigFitness(
             path=PathConfigFitness(**raw['path']),
             training_args=TrainingArgsFitnessConfig(**raw['training_args'])
-        )
+        ), task
 
     else:
         raise ValueError(f"Unsupported task type: {task}")
-
 
 class ConfigLogger:
     """
@@ -176,8 +133,8 @@ class ConfigLogger:
             self._log_hydrophobic_binary()
         elif self.task == "degree":
             self._log_degree()
-        elif self.task == 'area':
-            self._log_area()
+        elif self.task == 'bsa':
+            self._log_bsa()
         elif self.task == 'rsa':
             self._log_rsa()
         elif self.task == 'order':
@@ -211,7 +168,7 @@ class ConfigLogger:
     def _log_degree(self):
         pass
 
-    def _log_area(self):
+    def _log_bsa(self):
         pass
 
     def _log_rsa(self):

@@ -204,7 +204,7 @@ def train_fitness_regression_head(model_dir, model_src, unfreeze_last_n, emb_src
     best_model_path = os.path.join(checkpoints_dir, 'best')
     os.makedirs(best_model_path, exist_ok=True)
 
-    model.backbone.save_pretrained(best_model_path)
+    model.model.save_pretrained(best_model_path)
 
     torch.save(model.regressor.state_dict(), f"{best_model_path}/regression_head.pt")
 

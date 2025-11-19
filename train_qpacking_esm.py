@@ -22,10 +22,11 @@ from qpacking_esm.common import logger
 logger = logger.setup_log(name=__name__)
 
 
-def hydrophobic_binary(config, task):
+def hydrophobic_binary(config):
+    task = config.training_args.task
     dataset_args = {
         "seq_pkl": config.path.seq_pkl,
-        "pkl_file": config.path.pkl_file,
+        "feature_pkl": config.path.feature_pkl,
         "model_dir": config.path.model_dir,
         "tokenized_cache_path": config.path.tokenized_cache_path,
         "test_ratio": config.training_args.test_ratio,
@@ -74,10 +75,11 @@ def hydrophobic_binary(config, task):
         logger.error(str(e))
         raise
 
-def token_regression(config, task):
+def token_regression(config):
+    task = config.training_args.task
     dataset_args = {
-        "fasta_file": config.path.seq_pkl,
-        "pkl_file": config.path.pkl_file,
+        "seq_pkl": config.path.seq_pkl,
+        "feature_pkl": config.path.feature_pkl,
         "model_dir": config.path.model_dir,
         "tokenized_cache_path": config.path.tokenized_cache_path,
         "test_ratio": config.training_args.test_ratio,
@@ -125,10 +127,11 @@ def token_regression(config, task):
         logger.error(str(e))
         raise
 
-def fitness_regression(config, task):
+def fitness_regression(config):
+    task = config.training_args.task
     dataset_args = {
-        "model_dir": config.path.seq_pkl,
-        "pkl_file": config.path.pkl_file,
+        "model_dir": config.path.model_dir,
+        "feature_pkl": config.path.feature_pkl,
         "tokenized_cache_path": config.path.tokenized_cache_path,
         "test_ratio": config.training_args.test_ratio,
         "seed": config.training_args.seed,
@@ -148,7 +151,6 @@ def fitness_regression(config, task):
         base_model_name = os.path.basename(config.path.model_dir)
     else:
         base_model_name = os.path.basename(os.path.dirname(config.path.model_dir))
-
     model_args = {
         "model_dir": config.path.model_dir,
         "model_src": config.path.model_src,
@@ -186,7 +188,7 @@ def create_fitness_mlflow_experiment(config, task):
     Create an MLflow experiment for the given task.
     """
     model_src = config.path.model_src
-    pkl_name = os.path.basename(config.path.pkl_file).split('.')[0]
+    pkl_name = os.path.basename(config.path.feature_pkl).split('.')[0]
     unfrozen_layers = config.training_args.unfreeze_last_n
     emb_src = config.training_args.emb_src
     if model_src == "official":
@@ -214,14 +216,14 @@ def create_fitness_mlflow_experiment(config, task):
 
 def main():
     parser = argparse.ArgumentParser(description="Protein model script")
-    parser.add_argument(
-        '--task',
-        type=str,
-        required=True,
-        choices=['position', 'degree', 'area',
-                 'rsa', 'order', 'fitness'],
-        help="Training task selection"
-    )
+    # parser.add_argument(
+    #     '--task',
+    #     type=str,
+    #     required=True,
+    #     choices=['position', 'degree', 'bsa',
+    #              'rsa', 'order', 'fitness'],
+    #     help="Training task selection"
+    # )
 
     parser.add_argument(
         '--yaml',
@@ -232,16 +234,15 @@ def main():
 
     args = parser.parse_args()
     yaml_path = args.yaml
-    task = args.task
 
-    config = Config.from_yaml(yaml_path, task)
+    config, task = Config.from_yaml(yaml_path)
     log = Config.ConfigLogger(config, task)
     log.log()
     if task == 'position':
-        hydrophobic_binary(config, task=task)
+        hydrophobic_binary(config)
 
-    elif task in ['degree', 'area', 'rsa', 'order', 'centrality']:
-        token_regression(config, task=task)
+    elif task in ['degree', 'bsa', 'rsa', 'order']:
+        token_regression(config)
 
     elif task == 'fitness':
         run_name, task, model_src, base_model_name, pkl_name, unfrozen_layers, emb_src = create_fitness_mlflow_experiment(config, task)
@@ -255,7 +256,7 @@ def main():
                 "model": base_model_name
             })
             logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, model")
-            fitness_regression(config, task=task)
+            fitness_regression(config)
 
     else:
         raise ValueError(f"Unknown task: {task}")

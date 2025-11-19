@@ -176,13 +176,13 @@ class LabelPaddingCollator(DataCollatorWithPadding):
 # Structure Loader
 # =============================================================================
 
-def run_structure_encoder(seq_pkl, pkl_file, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed):
+def run_structure_encoder(seq_pkl, feature_pkl, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed):
     set_seed(seed)
 
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
     collator = LabelPaddingCollator(tokenizer=tokenizer)
 
-    encoder = DataEncoder(seq_pkl, pkl_file, tokenizer, tokenized_cache_path, task)
+    encoder = DataEncoder(seq_pkl, feature_pkl, tokenizer, tokenized_cache_path, task)
     tokenized, total = encoder.get()
     split = tokenized.train_test_split(test_size=test_ratio, seed=seed)
 
@@ -289,18 +289,18 @@ class FitnessCollator:
         }
 
 
-def run_fitness_data(model_dir, pkl_file, cache_dir, test_ratio, seed, batch):
+def run_fitness_data(model_dir, feature_pkl, tokenized_cache_path, test_ratio, seed, batch_size):
     set_seed(seed)
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
 
-    fd = FitnessData(tokenizer=tokenizer, cache_dir=cache_dir, pkl_file=pkl_file)
+    fd = FitnessData(tokenizer=tokenizer, cache_dir=tokenized_cache_path, pkl_file=feature_pkl)
     tokenized = fd.get()
 
     split = tokenized.train_test_split(test_size=test_ratio, seed=seed)
     collator = FitnessCollator(tokenizer)
 
-    train = DataLoader(split["train"], batch_size=batch, shuffle=True, collate_fn=collator)
-    val = DataLoader(split["test"], batch_size=batch, shuffle=False, collate_fn=collator)
+    train = DataLoader(split["train"], batch_size=batch_size, shuffle=True, collate_fn=collator)
+    val = DataLoader(split["test"], batch_size=batch_size, shuffle=False, collate_fn=collator)
 
     logger.info(f"Fitness train={len(split['train'])}, val={len(split['test'])}")
     return train, val, tokenizer
@@ -313,5 +313,5 @@ if __name__ == '__main__':
     test_ratio = 0.1
     batch_size = 16
     seed = 3407
-    run_structure_encoder(seq_pkl=seq_pkl, pkl_file=feature_pkl, model_dir=model_dir,
+    run_structure_encoder(seq_pkl=seq_pkl, feature_pkl=feature_pkl, model_dir=model_dir,
                           tokenized_cache_path=cache_dir, task='position', test_ratio=test_ratio, batch_size=batch_size, seed=seed)

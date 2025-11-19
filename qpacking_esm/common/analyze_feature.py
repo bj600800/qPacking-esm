@@ -19,14 +19,14 @@ from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-def load_existing_results(output_file):
+def load_existing_results(pkl_file):
     """
     Load existing results from a pickle file.
-    :param output_file: existing results file
+    :param pkl_file: existing results file
     :return: a dictionary containing loaded results
     """
     try:
-        with open(output_file, "rb") as f:
+        with open(pkl_file, "rb") as f:
             results_dict = pickle.load(f)  # output file only 1 obj.
             if not isinstance(results_dict, dict):
                 return {}
@@ -37,6 +37,10 @@ def load_existing_results(output_file):
     except Exception as e:
         logger.error(e)
         return {}
+def load_pkl(pkl_file):
+    with open(pkl_file, 'rb') as f:
+        loaded_data = pickle.load(f)
+    return loaded_data
 
 def analyze_class(load_existing_results):
     binary_positive_stats = []

@@ -45,7 +45,7 @@ class FitnessRegressionModel(nn.Module):
 
         self.loss_fn = nn.MSELoss()
 
-        params.unfreeze_backbone(self.model, model_prefix, unfreeze_last_n)
+        params.unfreeze_backbone(self.model, unfreeze_last_n, model_prefix)
 
         # Train header
         for name, param in self.regressor.named_parameters():
