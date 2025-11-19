@@ -235,7 +235,7 @@ def create_mlflow_experiment(config, task):
     run_name = (
         f"{timestamp}_{task}_{base_model_name}_"
         f"{pkl_name}_"
-        f"lr:{config.training_args.lr}_"
+        f"lora_layers:{config.lora.add_lora_layers}_"
         f"bs:{config.training_args.batch_size}_"
         f"epoch:{config.training_args.num_epochs}"
     )
