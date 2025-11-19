@@ -29,6 +29,7 @@ class LoRAConfig:
     rank: int
     alpha: int
     dropout: float
+    add_lora_layers: int
 
 @dataclass
 class TrainingArgsHydrophobicConfig:
@@ -54,7 +55,7 @@ class TrainingArgsHydrophobicBinaryConfig(TrainingArgsHydrophobicConfig):
     num_class: int
 
 @dataclass
-class PathConfigFitness():
+class PathConfigFitness:
     model_dir: str
     checkpoints_dir: str
     logging_dir: str

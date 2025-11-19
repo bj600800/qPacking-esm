@@ -54,7 +54,8 @@ class BaseEncoder:
         self.sigma = 1.0
 
     # Z-score
-    def compute_zscore(self, values):
+    @staticmethod
+    def compute_zscore(values):
         arr = np.array(values)
         mu = arr.mean()
         sigma = arr.std() or 1.0
@@ -98,12 +99,6 @@ class DataEncoder(BaseEncoder):
     # Convert raw pkl → {"id", "sequence", "labels"}
     def format_raw(self, pkl_data):
         seqs = load_existing_results(self.seq_pkl)
-
-        # Compute global z-score for regression tasks
-        if self.task != 'position':
-            all_vals = [v for fdict in pkl_data.values() for v in fdict.values()]
-            self.mu, self.sigma = self.compute_zscore(all_vals)
-
         formatted = []
 
         for pid, feature in pkl_data.items():
@@ -114,50 +109,128 @@ class DataEncoder(BaseEncoder):
             seq_dict = seq_info['seq_dict']
             first_id = min(seq_dict.keys())
             L = len(seq)
-            labels = [-100] * L
+
+            # 初始化 labels
+            if self.task == "position":
+                labels = [0] * L
+            else:
+                labels = [-100] * L
+
+            # 填充 feature 对应位置
             for res_id, v in feature.items():
                 idx = res_id - first_id
+
                 if self.task == "position":
                     labels[idx] = 1 if v > 0 else 0
                 else:
                     labels[idx] = v
-            formatted.append({"id": pid, "sequence": seq, "labels": labels})
+
+            formatted.append({
+                "id": pid,
+                "sequence": seq,
+                "labels": labels
+            })
         return formatted
 
     # Tokenize with task-specific encoders
     def encode_item(self, x):
         tok = self.tokenizer(x["sequence"], padding=False, return_attention_mask=True)
-        # Add special tokens padding
         tok["labels"] = [-100] + x["labels"] + [-100]
         return tok
 
-    def tokenize_dataset(self, dataset):
-        cache = os.path.join(self.cache_dir, self.task)
+    def tokenize_dataset(self, dataset, cache_dir):
+        if os.path.exists(cache_dir):
+            logger.info(f"[{self.task}] Loading cached dataset from: {cache_dir}")
+            return load_from_disk(cache_dir)
 
-        if os.path.exists(cache):
-            logger.info(f"[{self.task}] Loading cached dataset: {cache}")
-            return load_from_disk(cache)
-
-        logger.info(f"[{self.task}] Tokenizing...")
+        logger.info(f"[{self.task}] Tokenizing and caching to: {cache_dir}")
         tokenized = dataset.map(
-            lambda x: self.encode_item(x),
-            remove_columns=["id", "sequence", "labels"],
+            self.encode_item,
+            remove_columns=["id", "sequence", "labels"]
         )
-        tokenized.save_to_disk(cache)
+        tokenized.save_to_disk(cache_dir)
         return tokenized
 
     # Main function
-    def get(self):
+    def get(self, test_ratio, seed):
+        """
+        Returns:
+            tokenized_train, tokenized_test, total_samples
+        """
+
+        cache_root = os.path.join(self.cache_dir, self.task)
+        cache_train = os.path.join(cache_root, "train")
+        cache_test = os.path.join(cache_root, "test")
+        mu_sigma_file = os.path.join(cache_root, "mu_sigma.json")
+
+        # --------------------------------------------------------
+        # 0️⃣ 若 train/test 缓存都存在 → 直接加载（不重复归一化、不重复 tokenize）
+        # --------------------------------------------------------
+        if os.path.exists(cache_train) and os.path.exists(cache_test):
+            logger.info(f"[{self.task}] Loading cached tokenized dataset...")
+            tokenized_train = load_from_disk(cache_train)
+            tokenized_test = load_from_disk(cache_test)
+            total = len(tokenized_train) + len(tokenized_test)
+            return tokenized_train, tokenized_test, total
+
+        # --------------------------------------------------------
+        # 1️⃣ 读取原始 pkl
+        # --------------------------------------------------------
         raw = load_existing_results(self.pkl_file)
         formatted = self.format_raw(raw)
         dataset = Dataset.from_list(formatted)
-        tokenized = self.tokenize_dataset(dataset)
+        total = len(dataset)
 
-        # Save z-score stats for regression
-        if self.task != 'position':
-            self.dump_mu_sigma(os.path.join(self.cache_dir, self.task, "mu_sigma.json"))
+        # --------------------------------------------------------
+        # 2️⃣ train/test split —— 这一步必须在计算 z-score 前执行
+        # --------------------------------------------------------
+        split = dataset.train_test_split(test_size=test_ratio, seed=seed)
+        train_dataset = split["train"]
+        test_dataset = split["test"]
 
-        return tokenized, len(dataset)
+        # --------------------------------------------------------
+        # 3️⃣ 计算 train 的 μ/σ（仅非分类任务）
+        # --------------------------------------------------------
+        if self.task not in ["position", "rsa"]:
+            logger.info(f"[{self.task}] Computing Z-score on TRAIN only...")
+
+            train_valid = [
+                v for sample in train_dataset for v in sample["labels"] if v != -100
+            ]
+            self.mu, self.sigma = self.compute_zscore(train_valid)
+
+            self.dump_mu_sigma(mu_sigma_file)
+
+            def normalize(sample):
+                sample["labels"] = [
+                    (v - self.mu) / self.sigma if v != -100 else -100
+                    for v in sample["labels"]
+                ]
+                return sample
+            logger.info(f"Normalizing train set")
+            train_dataset = train_dataset.map(normalize)
+
+            logger.info(f"Normalizing test set")
+            test_dataset = test_dataset.map(normalize)
+
+        # --------------------------------------------------------
+        # 4️⃣ Tokenization：对 train/test 分别 tokenize 并缓存
+        # --------------------------------------------------------
+        logger.info(f"[{self.task}] Tokenizing train...")
+        tokenized_train = train_dataset.map(
+            lambda x: self.encode_item(x),
+            remove_columns=["id", "sequence", "labels"]
+        )
+        tokenized_train.save_to_disk(cache_train)
+
+        logger.info(f"[{self.task}] Tokenizing test...")
+        tokenized_test = test_dataset.map(
+            lambda x: self.encode_item(x),
+            remove_columns=["id", "sequence", "labels"]
+        )
+        tokenized_test.save_to_disk(cache_test)
+
+        return tokenized_train, tokenized_test, total
 
 
 # =============================================================================
@@ -183,13 +256,12 @@ def run_structure_encoder(seq_pkl, feature_pkl, model_dir, tokenized_cache_path,
     collator = LabelPaddingCollator(tokenizer=tokenizer)
 
     encoder = DataEncoder(seq_pkl, feature_pkl, tokenizer, tokenized_cache_path, task)
-    tokenized, total = encoder.get()
-    split = tokenized.train_test_split(test_size=test_ratio, seed=seed)
+    tokenized_train, tokenized_test, total = encoder.get(test_ratio=test_ratio, seed=seed)
 
-    train = DataLoader(split["train"], batch_size=batch_size, shuffle=True, collate_fn=collator)
-    val = DataLoader(split["test"], batch_size=batch_size, shuffle=False, collate_fn=collator)
+    train = DataLoader(tokenized_train, batch_size=batch_size, shuffle=True, collate_fn=collator)
+    val = DataLoader(tokenized_test, batch_size=batch_size, shuffle=False, collate_fn=collator)
 
-    logger.info(f"[{task}] total={total}, train={len(split['train'])}, val={len(split['test'])}")
+    logger.info(f"[{task}] total={total}, train={len(tokenized_train)}, val={len(tokenized_test)}")
     return train, val, tokenizer
 
 
@@ -198,11 +270,9 @@ def run_structure_encoder(seq_pkl, feature_pkl, model_dir, tokenized_cache_path,
 # =============================================================================
 
 class FitnessData(BaseEncoder):
-    def __init__(self, pkl_file, tokenizer, cache_dir="fitness_cache"):
+    def __init__(self, pkl_file, tokenizer, cache_dir):
         super().__init__(tokenizer, cache_dir)
         self.pkl_file = pkl_file
-        self.tokenizer = tokenizer
-        self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
 
     @staticmethod
@@ -210,29 +280,26 @@ class FitnessData(BaseEncoder):
         with open(path, "rb") as f:
             return pickle.load(f)
 
-    def zscore(self, items):
-        vals = [x["fitness"] for x in items]
-        mu, sigma = self.compute_zscore(vals)
-
+    # 训练集计算 μ/σ → 应用于训练/测试集
+    def zscore_split(self, train_items, test_items):
+        vals = [x["fitness"] for x in train_items]
+        self.mu, self.sigma = self.compute_zscore(vals)
         stats_path = os.path.join(self.cache_dir, "mu_sigma.json")
-        if os.path.exists(stats_path):
-            self.load_mu_sigma(stats_path)
-        else:
-            self.mu, self.sigma = mu, sigma
-            self.dump_mu_sigma(stats_path)
+        self.dump_mu_sigma(stats_path)
 
-        for x in items:
-            x["mutation"] = x["id"].split("_")[1]
-            x["raw_fitness"] = x["fitness"]
-            x["fitness"] = (x["fitness"] - self.mu) / self.sigma
+        def normalize(items):
+            for x in items:
+                x["mutation"] = x["id"].split("_")[1]
+                x["raw_fitness"] = x["fitness"]
+                x["fitness"] = (x["fitness"] - self.mu) / self.sigma
+            return items
 
-        return items
+        return normalize(train_items), normalize(test_items)
 
     @staticmethod
     def encode_pair(x, tokenizer):
         wt = tokenizer(x["wt_seq"], padding=False)
         mt = tokenizer(x["mt_seq"], padding=False)
-
         return {
             "wt_input_ids": wt["input_ids"],
             "wt_attention_mask": wt["attention_mask"],
@@ -247,8 +314,7 @@ class FitnessData(BaseEncoder):
             try:
                 return load_from_disk(self.cache_dir)
             except:
-                logger.warning("Cache corrupted → regenerating.")
-
+                logger.info("Generating fitness dataset.")
         tokenized = dataset.map(
             lambda x: self.encode_pair(x, self.tokenizer),
             remove_columns=["fitness", "wt_seq", "mt_seq"],
@@ -256,13 +322,25 @@ class FitnessData(BaseEncoder):
         tokenized.save_to_disk(self.cache_dir)
         return tokenized
 
-    def get(self):
+    def get(self, test_ratio, seed):
         raw = self.read_pkl(self.pkl_file)
-        z = self.zscore(raw)
-        dataset = Dataset.from_list(z)
-        tokenized = self.tokenize(dataset)
-        logger.info(f"Fitness samples = {len(dataset)}")
-        return tokenized
+        # 1️⃣ 划分训练/测试
+        split_idx = int(len(raw) * (1 - test_ratio))
+        random.Random(seed).shuffle(raw)
+        train_items, test_items = raw[:split_idx], raw[split_idx:]
+
+        # 2️⃣ 训练集计算 μ/σ → 归一化
+        train_items, test_items = self.zscore_split(train_items, test_items)
+
+        dataset_train = Dataset.from_list(train_items)
+        dataset_test = Dataset.from_list(test_items)
+
+        # 3️⃣ Tokenize
+        tokenized_train = self.tokenize(dataset_train)
+        tokenized_test = self.tokenize(dataset_test)
+        logger.info(f"Fitness samples = train:{len(tokenized_train)}, test:{len(tokenized_test)}")
+
+        return tokenized_train, tokenized_test
 
 
 class FitnessCollator:
@@ -278,7 +356,6 @@ class FitnessCollator:
             [{"input_ids": b["mut_input_ids"], "attention_mask": b["mut_attention_mask"]} for b in batch],
             return_tensors="pt",
         )
-
         return {
             "wt_input_ids": wt["input_ids"],
             "wt_attention_mask": wt["attention_mask"],
@@ -293,25 +370,30 @@ def run_fitness_data(model_dir, feature_pkl, tokenized_cache_path, test_ratio, s
     set_seed(seed)
     tokenizer = EsmTokenizer.from_pretrained(model_dir, do_lower_case=False)
 
-    fd = FitnessData(tokenizer=tokenizer, cache_dir=tokenized_cache_path, pkl_file=feature_pkl)
-    tokenized = fd.get()
-
-    split = tokenized.train_test_split(test_size=test_ratio, seed=seed)
+    fd = FitnessData(pkl_file=feature_pkl, tokenizer=tokenizer, cache_dir=tokenized_cache_path)
+    tokenized_train, tokenized_test = fd.get(test_ratio=test_ratio, seed=seed)
     collator = FitnessCollator(tokenizer)
 
-    train = DataLoader(split["train"], batch_size=batch_size, shuffle=True, collate_fn=collator)
-    val = DataLoader(split["test"], batch_size=batch_size, shuffle=False, collate_fn=collator)
+    train = DataLoader(tokenized_train, batch_size=batch_size, shuffle=True, collate_fn=collator)
+    val = DataLoader(tokenized_test, batch_size=batch_size, shuffle=False, collate_fn=collator)
 
-    logger.info(f"Fitness train={len(split['train'])}, val={len(split['test'])}")
     return train, val, tokenizer
 
 if __name__ == '__main__':
-    seq_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/all/test/feature_resid_name.pkl"
-    feature_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/feature/all/test/feature_position.pkl"
+    seq_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_resid_name.pkl"
+    feature_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_rsa.pkl"
     model_dir = r"/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D"
     cache_dir = r"/Users/douzhixin/Developer/qPacking-esm/data/test/tokenized_cache"
     test_ratio = 0.1
     batch_size = 16
     seed = 3407
     run_structure_encoder(seq_pkl=seq_pkl, feature_pkl=feature_pkl, model_dir=model_dir,
-                          tokenized_cache_path=cache_dir, task='position', test_ratio=test_ratio, batch_size=batch_size, seed=seed)
+                          tokenized_cache_path=cache_dir, task='rsa', test_ratio=test_ratio, batch_size=batch_size, seed=seed)
+    # model_dir = r"/Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints/bsa/best"
+    # feature_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/ss.pkl"
+    # tokenized_cache_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/ss_tokenized_cache"
+    # test_ratio = 0.2
+    # seed = 3470
+    # batch_size = 16
+    # run_fitness_data(model_dir=model_dir, feature_pkl=feature_pkl, tokenized_cache_path=tokenized_cache_path,
+    #                  test_ratio=test_ratio, seed=seed, batch_size=batch_size)

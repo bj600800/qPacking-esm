@@ -28,7 +28,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def train_hydrophobic_binary_classification(
         model_dir, checkpoints_dir, logging_dir,
-        batch_size, num_epochs, seed, lr, num_class,
+        batch_size, num_epochs, seed, lr, add_lora_layers, num_class,
         train_dataloader, valid_dataloader,
         lora_rank, lora_alpha, lora_dropout,
         eval_steps, eval_strategy, logging_strategy,
@@ -37,6 +37,7 @@ def train_hydrophobic_binary_classification(
 
     model = TokenClassificationModel(
         model_dir=model_dir,
+        add_lora_layers=add_lora_layers,
         num_class=num_class,  # binary class: 1/0
         lora_rank=lora_rank,
         lora_alpha=lora_alpha,
@@ -94,7 +95,7 @@ def train_hydrophobic_binary_classification(
 def train_token_regression(
         model_dir, checkpoints_dir, logging_dir,
         batch_size, num_epochs, seed, lr,
-        train_dataloader, valid_dataloader,
+        train_dataloader, valid_dataloader, add_lora_layers,
         lora_rank, lora_alpha, lora_dropout,
         eval_steps, save_steps, eval_strategy, save_strategy, save_total_limit,
         logging_strategy, logging_steps, reporter,
@@ -102,6 +103,7 @@ def train_token_regression(
 
     model = TokenRegressionModel(
         model_dir=model_dir,
+        add_lora_layers=add_lora_layers,
         lora_rank=lora_rank,
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout

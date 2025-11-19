@@ -50,6 +50,7 @@ def hydrophobic_binary(config):
         "num_epochs": config.training_args.num_epochs,
         "seed": config.training_args.seed,
         "lr": config.training_args.lr,
+        "add_lora_layers": config.lora.add_lora_layers,
         "num_class": config.training_args.num_class,
         "train_dataloader": train_dataloader,
         "valid_dataloader": valid_dataloader,
@@ -105,6 +106,7 @@ def token_regression(config):
         "lr": config.training_args.lr,
         "train_dataloader": train_dataloader,
         "valid_dataloader": valid_dataloader,
+        "add_lora_layers": config.lora.add_lora_layers,
         "lora_rank": config.lora.rank,
         "lora_alpha": config.lora.alpha,
         "lora_dropout": config.lora.dropout,
@@ -213,18 +215,123 @@ def create_fitness_mlflow_experiment(config, task):
 
     return run_name, task, model_src, base_model_name, pkl_name, unfrozen_layers, emb_src
 
+def create_mlflow_experiment(config, task):
+    """
+    Create an MLflow experiment for position / degree / bsa / rsa / order.
+    """
+    pkl_name = os.path.basename(config.path.feature_pkl).split('.')[0]
+    base_model_name = os.path.basename(config.path.model_dir)
+
+    experiment_name = f"{task}_finetune"
+    try:
+        mlflow.set_experiment(experiment_name)
+        logger.info(f"MLflow experiment set to: {experiment_name}")
+    except mlflow.exceptions.MlflowException:
+        exp = mlflow.get_experiment_by_name(experiment_name)
+        mlflow.tracking.MlflowClient().restore_experiment(exp.experiment_id)
+        raise
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H:%M")
+    run_name = (
+        f"{timestamp}_{task}_{base_model_name}_"
+        f"{pkl_name}_"
+        f"lr:{config.training_args.lr}_"
+        f"bs:{config.training_args.batch_size}_"
+        f"epoch:{config.training_args.num_epochs}"
+    )
+
+    return {
+        "run_name": run_name,
+        "task": task,
+        "model": base_model_name,
+        "pkl_name": pkl_name,
+        "lr": config.training_args.lr,
+        "batch_size": config.training_args.batch_size,
+        "num_epochs": config.training_args.num_epochs,
+        "lora_rank": config.lora.rank,
+        "lora_alpha": config.lora.alpha,
+        "lora_dropout": config.lora.dropout
+    }
+
+def run_fitness_with_mlflow(config):
+    """
+    Run the fitness regression task with MLflow experiment creation,
+    run name formatting, tags, and training wrapped into a single function.
+    """
+    task = config.training_args.task
+
+    # --------------------------
+    # Build experiment name
+    # --------------------------
+    model_src = config.path.model_src
+    pkl_name = os.path.basename(config.path.feature_pkl).split('.')[0]
+    unfrozen_layers = config.training_args.unfreeze_last_n
+    emb_src = config.training_args.emb_src
+
+    if model_src == "official":
+        base_model_name = os.path.basename(config.path.model_dir)
+    else:
+        base_model_name = os.path.basename(os.path.dirname(config.path.model_dir))
+
+    experiment_name = f"{task}_{base_model_name}_{pkl_name}"
+
+    # --------------------------
+    # Set MLflow experiment
+    # --------------------------
+    try:
+        mlflow.set_experiment(experiment_name)
+        logger.info(f"MLflow experiment set to: {experiment_name}")
+    except mlflow.exceptions.MlflowException:
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+        mlflow.tracking.MlflowClient().restore_experiment(experiment.experiment_id)
+        logger.error(f"Experiment existed but deleted, restored: {experiment_name}")
+        raise
+
+    # --------------------------
+    # Run name
+    # --------------------------
+    timestamp = datetime.now().strftime("%Y%m%d-%H:%M")
+    run_name = f"{timestamp}_{task}_{base_model_name}_{pkl_name}_unfrozen:{unfrozen_layers}_{emb_src}"
+    logger.info(f"MLflow run name: {run_name}")
+
+    # --------------------------
+    # Start MLflow Run
+    # --------------------------
+    with mlflow.start_run(run_name=run_name):
+
+        mlflow.set_tags({
+            "task": task,
+            "model_src": model_src,
+            "model": base_model_name,
+            "pkl_name": pkl_name,
+            "unfrozen_layers": unfrozen_layers,
+            "emb_src": emb_src,
+        })
+        logger.info("MLflow tags set for fitness regression.")
+
+        # ----------------------
+        # Run training
+        # ----------------------
+        fitness_regression(config)
+
+def run_hydrophobic_binary_with_mlflow(config):
+    info = create_mlflow_experiment(config, config.training_args.task)
+
+    with mlflow.start_run(run_name=info["run_name"]):
+        mlflow.set_tags(info)
+
+        hydrophobic_binary(config)
+
+def run_token_regression_with_mlflow(config):
+    info = create_mlflow_experiment(config, config.training_args.task)
+
+    with mlflow.start_run(run_name=info["run_name"]):
+        mlflow.set_tags(info)
+
+        token_regression(config)
 
 def main():
     parser = argparse.ArgumentParser(description="Protein model script")
-    # parser.add_argument(
-    #     '--task',
-    #     type=str,
-    #     required=True,
-    #     choices=['position', 'degree', 'bsa',
-    #              'rsa', 'order', 'fitness'],
-    #     help="Training task selection"
-    # )
-
     parser.add_argument(
         '--yaml',
         type=str,
@@ -239,24 +346,13 @@ def main():
     log = Config.ConfigLogger(config, task)
     log.log()
     if task == 'position':
-        hydrophobic_binary(config)
+        run_hydrophobic_binary_with_mlflow(config)
 
     elif task in ['degree', 'bsa', 'rsa', 'order']:
-        token_regression(config)
+        run_token_regression_with_mlflow(config)
 
     elif task == 'fitness':
-        run_name, task, model_src, base_model_name, pkl_name, unfrozen_layers, emb_src = create_fitness_mlflow_experiment(config, task)
-        with mlflow.start_run(run_name=run_name):
-            mlflow.set_tags({
-                "task": task,
-                "model_src": model_src,
-                "pkl_name": pkl_name,
-                "unfrozen_layers": unfrozen_layers,
-                "emb_src": emb_src,
-                "model": base_model_name
-            })
-            logger.info(f"MLflow set tags: task, model_src, pkl_name, unfrozen_layers, emb_src, model")
-            fitness_regression(config)
+        run_fitness_with_mlflow(config)
 
     else:
         raise ValueError(f"Unknown task: {task}")

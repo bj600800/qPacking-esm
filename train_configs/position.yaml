@@ -13,6 +13,7 @@ lora:
   rank: 8
   alpha: 8
   dropout: 0.05
+  add_lora_layers: 0
 
 training_args:
   task: position
@@ -20,15 +21,15 @@ training_args:
   lr: 2.0e-5
   num_class: 2
   num_epochs: 1
-  batch_size: 16
+  batch_size: 2
   test_ratio: 0.1
   eval_strategy: steps
   logging_strategy: steps
-  eval_steps: 10000
-  save_steps: 10000
+  eval_steps: 1
+  save_steps: 1
   save_strategy: steps
   save_total_limit: 3
-  logging_steps: 100
+  logging_steps: 1
   reporter: mlflow
-  metric_for_best_model: accuracy
+  metric_for_best_model: f1_macro
   greater_is_better: True

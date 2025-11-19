@@ -11,8 +11,8 @@ from qpacking_esm.model.base import BaseESMLoraModel
 from qpacking_esm.model.heads import ClassificationHead, RegressionHead
 
 class TokenClassificationModel(BaseESMLoraModel):
-    def __init__(self, model_dir, num_class, lora_rank, lora_alpha, lora_dropout):
-        super().__init__(model_dir, lora_rank, lora_alpha, lora_dropout)
+    def __init__(self, model_dir, num_class, add_lora_layers, lora_rank, lora_alpha, lora_dropout):
+        super().__init__(model_dir, add_lora_layers, lora_rank, lora_alpha, lora_dropout)
         self.head = ClassificationHead(self.hidden_size, num_class)
 
     def forward(self, input_ids, attention_mask=None, labels=None):
@@ -20,8 +20,8 @@ class TokenClassificationModel(BaseESMLoraModel):
         return self.head(hidden, labels)
 
 class TokenRegressionModel(BaseESMLoraModel):
-    def __init__(self, model_dir, lora_rank, lora_alpha, lora_dropout, weighted=False):
-        super().__init__(model_dir, lora_rank, lora_alpha, lora_dropout)
+    def __init__(self, model_dir, add_lora_layers, lora_rank, lora_alpha, lora_dropout, weighted=False):
+        super().__init__(model_dir, add_lora_layers, lora_rank, lora_alpha, lora_dropout)
         self.head = RegressionHead(self.hidden_size, weighted=weighted)
 
     def forward(self, input_ids, attention_mask=None, labels=None):

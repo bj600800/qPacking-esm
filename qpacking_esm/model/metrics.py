@@ -8,35 +8,40 @@
 # ------------------------------------------------------------------------------
 """
 import os
+import scipy
 import json
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support, accuracy_score, mean_squared_error
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score, mean_squared_error, roc_auc_score
 from scipy.stats import pearsonr, spearmanr
 from train_configs import Config
 
 def compute_binary_metrics(eval_preds):
     logits, labels = eval_preds
-    predictions = np.argmax(logits, axis=-1)
+    probs = scipy.special.softmax(logits, axis=-1)[..., 1]
+    preds = np.argmax(logits, axis=-1)
 
-    true_labels = []
-    true_predictions = []
-    for pred, label in zip(predictions, labels):
-        for p, l in zip(pred, label):
-            if l != -100:
-                true_labels.append(l)
-                true_predictions.append(p)
+    mask = labels != -100
+    true_labels = labels[mask]
+    true_predictions = preds[mask]
+    true_probs = probs[mask]
 
     precision, recall, f1, _ = precision_recall_fscore_support(
         true_labels, true_predictions, average='macro', zero_division=0
     )
-
     acc = accuracy_score(true_labels, true_predictions)
+
+    # AUC
+    try:
+        auc = roc_auc_score(true_labels, true_probs)
+    except ValueError:
+        auc = float("nan")
 
     return {
         "accuracy": acc,
         "precision_macro": precision,
         "recall_macro": recall,
-        "f1_macro": f1
+        "f1_macro": f1,
+        "AUC": auc
     }
 
 def compute_regression_metrics(eval_pred):

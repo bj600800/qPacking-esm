@@ -14,6 +14,7 @@ lora:
   rank: 8
   alpha: 8
   dropout: 0.05
+  add_lora_layers: 1
 
 training_args:
   task: bsa
@@ -30,5 +31,5 @@ training_args:
   save_total_limit: 3
   logging_steps: 1
   reporter: mlflow
-  metric_for_best_model: eval_Spearman
+  metric_for_best_model: Spearman
   greater_is_better: True

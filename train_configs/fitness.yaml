@@ -24,13 +24,13 @@ training_args:
   test_ratio: 0.2
   eval_strategy: steps
   logging_strategy: steps
-  eval_steps: 1
-  save_steps: 1
+  eval_steps: 10
+  save_steps: 10
   save_strategy: steps
   save_total_limit: 3
-  logging_steps: 1
+  logging_steps: 10
   reporter: mlflow
-  metric_for_best_model: eval_Spearman
+  metric_for_best_model: Spearman
   greater_is_better: True
 
 
