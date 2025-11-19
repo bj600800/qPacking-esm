@@ -22,7 +22,6 @@ import torch.nn as nn
 from transformers import EsmTokenizer, EsmModel
 from peft import PeftModel, PeftConfig
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_curve, auc
-test
 
 def get_seq(atom_array):
     unique_residues = list(dict.fromkeys(atom_array.res_id))
