@@ -11,9 +11,9 @@ from transformers import EsmTokenizer, EsmModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from qpacking_esm.model.heads import ClassificationHead, RegressionHead
 # ==== 1. 配置路径 ====
-model_dir = "/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"  # 原始的 ESM2 模型名
+model_dir = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D"  # 原始的 ESM2 模型名
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 # ==== 2. 加载 tokenizer ====
@@ -24,25 +24,32 @@ base_model = EsmModel.from_pretrained(model_dir, add_pooling_layer=False)
 base_model = base_model.to(device)
 
 # ==== 4. 定义分类模型 ====
-class HydrophobicBinaryClassificationModel(nn.Module):
-    def __init__(self, backbone, num_class=2):
+class TokenClassificationModel(nn.Module):
+    def __init__(self, backbone, classifier_head_path):
         super().__init__()
-        self.model = backbone
-        self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(self.model.config.hidden_size, num_class)
+        self.backbone = backbone
+        self.head = ClassificationHead(backbone.config.hidden_size, 2)
 
-    def forward(self, input_ids, attention_mask):
-        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = self.dropout(outputs.last_hidden_state)
-        logits = self.classifier(hidden_states)
+        # load state_dict
+        state_dict = torch.load(classifier_head_path, map_location="cpu", weights_only=True)
+        state_dict_linear = {k.replace("classifier.", ""): v for k, v in state_dict.items() if
+                             k.startswith("classifier.")}
+        self.head.classifier.load_state_dict(state_dict_linear)
+
+    def forward(self, input_ids, attention_mask=None):
+        hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+        logits = self.head(hidden)
         return logits
 
+
+head_path = r"/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/hpd/position/lora1/checkpoint-3500/task_head.pt"
+
 # ==== 5. 初始化模型（不要加载微调头） ====
-model = HydrophobicBinaryClassificationModel(backbone=base_model, num_class=2).to(device)
+model = TokenClassificationModel(backbone=base_model, classifier_head_path=head_path).to(device)
 model.eval()
 
 # ==== 6. 输入序列 ====
-sequences = ["INSDLPRDPYVPWNRWWWTRIFDAGISFIRIGQYENSSDPTSWDWVERKRGEYSIAQEVDDQIDSLVENGVHIEIQLLYGNPLYTSPAGRAPQTVTPAPGGFHNPDRSLYSVFWPPKTPEQIQAFSNYARWMANHFRGRAQYYEIWNEPNIDYWNPAPSPEEYGRLFKAVAPAIRAADPSAKIIFGGLAGADRKFAKRALDACACGEGIDVFAYHIYPDYGQNLNPEAMDDERHTSESPKALRDMVRNYPGIRKDLVFWNDEFNSIPSWQGSDESVQTKYLPRGLIADRAAGVRTFVWLIVGATDGNESDDFGMLHGLMFRPEDFTPRPVFAALRNTITLFSD"]
+sequences = ["VYGRNILNENGELVMLRGANRPGTEYCCVQYAKIFDGPHDQAQVDEMRKWKMNAVRVPLNEDCWLGVHAPETEYFGASYRKALEDYIKQYTDSNMAVIIDLHWASENGKLATQQIPMPNNGNSLLFWEDVARTFKDNSRVLFDLYNEPYPYGNSWANPDAWQCWKNGTDCGTLGYEASGMQQMIDAIRSTGSTNIILLSGIQYATSFTMFLDYQPTDPAKQMGVALHSYDFNYCRSRGCWDTYLKPVYSLFPMVATETGQKDCLHDFLSDFINYCDSNDIHYLAWSWLTGECGIPSLIEDYEGNPSNFGVGLKRHLSDLAKG"]
 encoded = tokenizer(sequences, padding=True, return_tensors="pt").to(device)
 input_ids = encoded["input_ids"]
 attention_mask = encoded["attention_mask"]
@@ -50,7 +57,7 @@ attention_mask = encoded["attention_mask"]
 # ==== 7. 模型推理 ====
 with torch.no_grad():
     logits = model(input_ids=input_ids, attention_mask=attention_mask)
-    predictions = torch.argmax(logits, dim=-1)
+    predictions = torch.argmax(logits.logits, dim=-1)
 
 # ==== 8. 输出结果（去除 <cls> 和 <eos>） ====
 pred_labels = predictions.tolist()[0][1:-1]

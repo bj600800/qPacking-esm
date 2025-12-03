@@ -14,14 +14,12 @@ import json
 import pickle
 import random
 import numpy as np
-from Bio import SeqIO
-
 import torch
 from torch.utils.data import DataLoader
 from transformers import EsmTokenizer, DataCollatorWithPadding
 from datasets import Dataset, load_from_disk
 
-from qpacking_esm.common.analyze_feature import load_existing_results
+from qpacking_esm.common.statis_plot_feature import load_existing_results
 from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
@@ -111,7 +109,7 @@ class DataEncoder(BaseEncoder):
             L = len(seq)
 
             # 初始化 labels
-            if self.task == "position":
+            if self.task in ["position", "rsa"]:
                 labels = [0] * L
             else:
                 labels = [-100] * L
@@ -122,6 +120,8 @@ class DataEncoder(BaseEncoder):
 
                 if self.task == "position":
                     labels[idx] = 1 if v > 0 else 0
+                elif self.task == "rsa":
+                    labels[idx] = 1 if v < 0.05 else 0
                 else:
                     labels[idx] = v
 
@@ -309,26 +309,27 @@ class FitnessData(BaseEncoder):
             "labels": torch.tensor(x["fitness"], dtype=torch.float),
         }
 
-    def tokenize(self, dataset):
-        if os.path.exists(self.cache_dir):
+    def tokenize(self, dataset, cache_name="dataset"):
+        cache_path = os.path.join(self.cache_dir, cache_name)
+        if os.path.exists(cache_path):
             try:
-                return load_from_disk(self.cache_dir)
+                return load_from_disk(cache_path)
             except:
-                logger.info("Generating fitness dataset.")
+                logger.info(f"Generating dataset {cache_name}.")
+
         tokenized = dataset.map(
             lambda x: self.encode_pair(x, self.tokenizer),
             remove_columns=["fitness", "wt_seq", "mt_seq"],
         )
-        tokenized.save_to_disk(self.cache_dir)
+        tokenized.save_to_disk(cache_path)
         return tokenized
 
     def get(self, test_ratio, seed):
-        raw = self.read_pkl(self.pkl_file)
         # 1️⃣ 划分训练/测试
+        raw = self.read_pkl(self.pkl_file)
         split_idx = int(len(raw) * (1 - test_ratio))
         random.Random(seed).shuffle(raw)
         train_items, test_items = raw[:split_idx], raw[split_idx:]
-
         # 2️⃣ 训练集计算 μ/σ → 归一化
         train_items, test_items = self.zscore_split(train_items, test_items)
 
@@ -336,8 +337,9 @@ class FitnessData(BaseEncoder):
         dataset_test = Dataset.from_list(test_items)
 
         # 3️⃣ Tokenize
-        tokenized_train = self.tokenize(dataset_train)
-        tokenized_test = self.tokenize(dataset_test)
+        tokenized_train = self.tokenize(dataset_train, cache_name="train")
+        tokenized_test = self.tokenize(dataset_test, cache_name="test")
+
         logger.info(f"Fitness samples = train:{len(tokenized_train)}, test:{len(tokenized_test)}")
 
         return tokenized_train, tokenized_test

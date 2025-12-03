@@ -1,14 +1,13 @@
 path:
   # Input
-  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
-  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_resid_name.pkl
-  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_rsa.pkl
+  model_dir: /home/u2600215/qpacking-esm/data/checkpoints/esm2_t30_150M_UR50D
+  seq_pkl: /home/u2600215/qpacking-esm/data/feature/feature_resid_name.pkl
+  feature_pkl: /home/u2600215/qpacking-esm/data/feature/feature_rsa.pkl
 
   # Output
-  checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
-  logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/logs
-  tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/test/tokenized_cache  # root path
-
+  checkpoints_dir: /home/u2600215/qpacking-esm/data/checkpoints/
+  logging_dir: /home/u2600215/qpacking-esm/data/logs/
+  tokenized_cache_path: /home/u2600215/qpacking-esm/data/feature/tokenized_cache/ # root path
 
 lora:
   rank: 8
@@ -18,6 +17,7 @@ lora:
 
 training_args:
   task: rsa
+  num_class: 2
   seed: 3407
   lr: 2.0e-5
   num_epochs: 2
@@ -25,11 +25,11 @@ training_args:
   test_ratio: 0.1
   eval_strategy: steps
   logging_strategy: steps
-  eval_steps: 1
-  save_steps: 1
+  eval_steps: 500
+  save_steps: 500
   save_strategy: steps
   save_total_limit: 3
-  logging_steps: 1
+  logging_steps: 500
   reporter: mlflow
-  metric_for_best_model: Spearman
+  metric_for_best_model: f1_macro
   greater_is_better: True

@@ -11,7 +11,7 @@ import csv
 import pickle
 from Bio import SeqIO
 
-
+HYDROPHOBIC_AA = set('AVILM')  # 疏水氨基酸集合
 def read_seq(fasta_path):
     seq_dict = {}
     for record in SeqIO.parse(fasta_path, "fasta"):
@@ -43,6 +43,12 @@ def get_dataset(seq_dict, data_list, offset_idx):
         wt_seq = seq_dict[seq_name]
         mt_seq = replace_char(wt_seq, pos, data[3])
         fitness = float(data[4])
+        wt_aa = seq_dict[seq_name][pos]
+        mt_aa = data[3]
+
+        # 样本筛选
+        if wt_aa not in HYDROPHOBIC_AA or mt_aa not in HYDROPHOBIC_AA:
+            continue
         dataset.append({
             'id': seq_id,
             'wt_seq': wt_seq,
@@ -58,19 +64,16 @@ def dump_pkl(dataset, pkl_path):
 
 if __name__ == '__main__':
     import os
-    csv_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/ss.csv"
-    fasta_dir = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db"
-    pkl_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/ss.pkl"
-    offset_idx = 40
+    csv_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.csv"
+    fasta_file = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.fasta"
+    pkl_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.pkl"
+    offset_idx = 1
     data_list = read_csv(csv_path)
-    fasta_files = [os.path.join(fasta_dir, f) for f in os.listdir(fasta_dir) if f.endswith('.fasta')]
-    fasta_dict = {}
-    for file in fasta_files:
-        _dict = read_seq(file)
-        fasta_dict.update(_dict)
+    fasta_dict = read_seq(fasta_file)
     dataset = get_dataset(fasta_dict, data_list, offset_idx)
     dump_pkl(dataset, pkl_path)
 
     with open(pkl_path, 'rb') as f:
         loaded_data = pickle.load(f)
     print(loaded_data)
+    print(len(loaded_data))

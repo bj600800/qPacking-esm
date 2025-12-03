@@ -94,14 +94,14 @@ def from_yaml(path: str):
 
     task = raw.get('training_args', {}).get('task', None)
 
-    if task == "position":
+    if task in ["position", "rsa"]:
         return ConfigHydrophobicBinary(
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),
             training_args=TrainingArgsHydrophobicBinaryConfig(**raw['training_args'])
         ), task
 
-    elif task in ["degree", "rsa", "bsa", "order"]:
+    elif task in ["degree", "bsa", "order"]:
         return ConfigFeature(
             path=PathConfig(**raw['path']),
             lora=LoRAConfig(**raw['lora']),

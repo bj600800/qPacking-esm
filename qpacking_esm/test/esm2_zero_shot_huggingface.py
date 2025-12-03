@@ -11,7 +11,7 @@ from tqdm import tqdm
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForMaskedLM
-from qpacking.common import logger
+from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
@@ -129,12 +129,12 @@ def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, 
 
 
 if __name__ == "__main__":
-    model_path = "/Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D"
+    model_path = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D"
     model_name = "esm2_t30_150M_UR50D"
-    sequence = "HPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRVDAGQEQLGRRIHYSQNDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRLDRWEPELNEAIPNDERDTTMPAAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPLLRSALPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIAEIGASLIKHW"
-    dms_input = "/Users/douzhixin/Developer/qPacking/data/benchmark/BLAT_ECOLX_Ranganathan2015_labeled.csv"
-    offset_idx = 24
+    sequence = "ERVKIIAEFKKASPSAGDINADASLEDFIRMYDELADAISILTEKHYFKGDPAFVRAARNLTSRPILAKDFYIDTVQVKLASSVGADAILIIARILTAEQIKEIYEAAEELGMDSLVEVHSREDLEKVFSVIRPKIIGINTRDLDTFEIKKNVLWELLPLVPDDTVVVAESGIKDPRELKDLRGKVNAVLVGTSIMKAENPRRFLEEMRAWSE"
+    dms_input = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/tm.csv"
+    offset_idx = 40
     mutation_col = "mutant"
     scoring_strategy = "wt-marginals"  # or "masked-marginals" or "pseudo-ppl"
-    dms_output = "/Users/douzhixin/Developer/qPacking/data/benchmark/BLAT_ECOLX_Ranganathan2015_hugg_predicted.csv"
+    dms_output = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/tm_output.csv"
     main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, scoring_strategy, dms_output)

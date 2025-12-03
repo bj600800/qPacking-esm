@@ -8,18 +8,13 @@
 # ------------------------------------------------------------------------------
 """
 import torch
-from transformers import EsmTokenizer
-from safetensors.torch import load_file
-
-import torch.nn.functional as F
-# === 参数 ===
-import torch
 import torch.nn as nn
 from transformers import EsmModel, EsmTokenizer
 from peft import PeftModel, PeftConfig
-from qpacking_esm.model.heads import ClassificationHead
+from qpacking_esm.model.heads import ClassificationHead, RegressionHead
+
 # ==== 1. 配置路径 ====
-best_model_path = "/Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints/hydrophobic_binary/best"  # 修改为你保存模型的目录
+best_model_path = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/hpd/position/lora2/checkpoint-5000"  # 修改为你保存模型的目录
 
 # ==== 2. 加载 tokenizer ====
 tokenizer = EsmTokenizer.from_pretrained(best_model_path)
@@ -35,19 +30,23 @@ class TokenClassificationModel(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.head = ClassificationHead(backbone.config.hidden_size, 2)
-        self.head.classifier.load_state_dict(torch.load(classifier_head_path, weights_only=True))
+
+        # load state_dict
+        state_dict = torch.load(classifier_head_path, map_location="cpu", weights_only=True)
+        state_dict_linear = {k.replace("classifier.", ""): v for k, v in state_dict.items() if
+                             k.startswith("classifier.")}
+        self.head.classifier.load_state_dict(state_dict_linear)
 
     def forward(self, input_ids, attention_mask=None):
         hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
         logits = self.head(hidden)
         return logits
 
-
-model = TokenClassificationModel(backbone, f"{best_model_path}/classifier_head.pt")
+model = TokenClassificationModel(backbone, f"{best_model_path}/task_head.pt")
 model.eval()
 
 # ==== 6. 输入示例序列 ====
-sequences = ["ERTFIAIKPDGVQRGLVGEIIKRFEQKGFRLVAMKFLASEEHLKQHYIDLKDRPFFPGLVKYMNSGPVVAMVWEGLVVKTGRVMLGETNPADSKPGTIRGDFCIQVGRNIIHGSDSVKSAEKEISLWFKPEELVDYKCAHDWVYE"]
+sequences = ["VYGRNILNENGELVMLRGANRPGTEYCCVQYAKIFDGPHDQAQVDEMRKWKMNAVRVPLNEDCWLGVHAPETEYFGASYRKALEDYIKQYTDSNMAVIIDLHWASENGKLATQQIPMPNNGNSLLFWEDVARTFKDNSRVLFDLYNEPYPYGNSWANPDAWQCWKNGTDCGTLGYEASGMQQMIDAIRSTGSTNIILLSGIQYATSFTMFLDYQPTDPAKQMGVALHSYDFNYCRSRGCWDTYLKPVYSLFPMVATETGQKDCLHDFLSDFINYCDSNDIHYLAWSWLTGECGIPSLIEDYEGNPSNFGVGLKRHLSDLAKG"]
 encoded = tokenizer(sequences, padding=True, return_tensors="pt")
 input_ids = encoded["input_ids"]
 attention_mask = encoded["attention_mask"]
@@ -55,7 +54,8 @@ attention_mask = encoded["attention_mask"]
 # ==== 7. 模型推理 ====
 with torch.no_grad():
     logits = model(input_ids=input_ids, attention_mask=attention_mask)
-    predictions = torch.argmax(logits.logits, dim=-1)
+    predictions = torch.argmax(logits.logits, dim=-1)  # binary
+    # predictions = logits  # [batch, seq_len] 回归预测值
 
 # ==== 8. 输出结果 ====
 print("Predicted labels:", predictions.tolist()[0][1:-1])

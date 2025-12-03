@@ -345,10 +345,10 @@ def main():
     config, task = Config.from_yaml(yaml_path)
     log = Config.ConfigLogger(config, task)
     log.log()
-    if task == 'position':
+    if task in ['position', 'rsa']:
         run_hydrophobic_binary_with_mlflow(config)
 
-    elif task in ['degree', 'bsa', 'rsa', 'order']:
+    elif task in ['degree', 'bsa', 'order']:
         run_token_regression_with_mlflow(config)
 
     elif task == 'fitness':

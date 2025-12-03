@@ -12,26 +12,30 @@ import torch
 from transformers import TrainerCallback
 
 class SaveCompleteModelCallback(TrainerCallback):
-    """
-    saved 1
-    """
     def __init__(self, model, tokenizer):
         self.model = model
         self.tokenizer = tokenizer
 
     def on_save(self, args, state, control, **kwargs):
-        checkpoint_dir = args.output_dir
-        output_dir = os.path.join(checkpoint_dir, f"checkpoint-{state.global_step}")
-        os.makedirs(output_dir, exist_ok=True)
+        checkpoint_dir = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
+        os.makedirs(checkpoint_dir, exist_ok=True)
 
-        # save adapter
-        if hasattr(self.model, "model") and hasattr(self.model.model, "save_pretrained"):
-            self.model.model.save_pretrained(output_dir)
+        model = self.model  # TokenRegressionModel / TokenClassificationModel
 
-        if hasattr(self.model, "classifier"):
-            torch.save(self.model.classifier.state_dict(), os.path.join(output_dir, "classifier_head.pt"))
+        # ------------------------------
+        # 1. 保存 LoRA backbone
+        # ------------------------------
 
-        if hasattr(self.model, "regressor"):
-            torch.save(self.model.regressor.state_dict(), os.path.join(output_dir, "regression_head.pt"))
+        if hasattr(model, "backbone"):
+            model.backbone.save_pretrained(checkpoint_dir)
 
-        self.tokenizer.save_pretrained(output_dir)
+        # ------------------------------
+        # 2. 保存 head
+        # ------------------------------
+        if hasattr(model, "head"):
+            torch.save(model.head.state_dict(), os.path.join(checkpoint_dir, "task_head.pt"))
+
+        # ------------------------------
+        # 3. 保存 tokenizer
+        # ------------------------------
+        self.tokenizer.save_pretrained(checkpoint_dir)

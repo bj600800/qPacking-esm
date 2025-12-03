@@ -10,7 +10,7 @@ pip install sympy==1.13.1
 pip install transformers==4.52.4
 pip install datasets
 pip install peft
-pip install matplotlib
+pip install matplotlib==3.10.7
 pip install biopython
 pip install scikit-learn
 pip install mlflow
@@ -19,8 +19,10 @@ pip install umap-learn
 pip install pytest
 pip install colorlog
 pip install biotite
+pip install numpy==2.2.6
 
 Tools:
+conda install bioconda::tmalign
 conda install -c conda-forge -c bioconda foldseek
 conda install -c conda-forge -c bioconda mmseqs2
 conda install -c bioconda seqkit

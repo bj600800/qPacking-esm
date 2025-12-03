@@ -1,13 +1,13 @@
 path:
   # Input
   model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
-  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_resid_name.pkl
-  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/test/feature/feature_order.pkl
+  seq_pkl: /Users/douzhixin/Developer/qPacking-esm/data/feature/feature_resid_name.pkl
+  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/feature/feature_order.pkl
 
   # Output
   checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
   logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
-  tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/test/tokenized_cache  # root path
+  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/feature
 
 
 lora:

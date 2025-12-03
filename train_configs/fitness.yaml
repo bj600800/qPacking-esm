@@ -1,34 +1,34 @@
 path:
   # Input
-  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints/bsa/best
+  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/hpd/degree/degree-lora2/checkpoint-15500
   model_src: finetuned
-  # model_dir: /Users/douzhixin/Developer/qPacking/code/checkpoints/esm2_t30_150M_UR50D
-  # model_src: official
-  seq_fasta: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/ss.fasta
-  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/ss.pkl
+#  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
+#  model_src: official
+  seq_fasta: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.fasta
+  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.pkl
 
 
   # Output
   checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
-  logging_dir: /Users/douzhixin/Developer/qPacking/code/logs
-  tokenized_cache_path: /Users/douzhixin/Developer/qPacking/data/benchmark/tim-db/ss_tokenized_cache
+  logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/logs
+  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1_tokenized_cache
 
 training_args:
   task: fitness
   unfreeze_last_n: 0
-  emb_src: cls
+  emb_src: pos
   seed: 3407
   lr: 2.0e-5
-  num_epochs: 0.1
+  num_epochs: 100
   batch_size: 16
   test_ratio: 0.2
   eval_strategy: steps
   logging_strategy: steps
-  eval_steps: 10
-  save_steps: 10
+  eval_steps: 20
+  save_steps: 20
   save_strategy: steps
   save_total_limit: 3
-  logging_steps: 10
+  logging_steps: 20
   reporter: mlflow
   metric_for_best_model: Spearman
   greater_is_better: True
