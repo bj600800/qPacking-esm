@@ -125,6 +125,6 @@ def plot_feature(load_existing_results, feature_name, dtype=None, bins=11):
 
 
 if __name__ == '__main__':
-    output_feature_pkl = r"/Users/douzhixin/Developer/qPacking-esm/data/feature_order.pkl"
+    output_feature_pkl = r"/Users/douzhixin/Developer/qPacking2/data/test/examole_feature.pkl"
     ret = load_existing_results(output_feature_pkl)
-    plot_feature(ret, 'order', dtype='single')
+    plot_feature(ret, 'order')

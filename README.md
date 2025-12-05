@@ -1,7 +1,7 @@
-# qPacking2
+# qPacking-ESM
 Structure-aware fine-tuning strategies for ESM-2 to improve protein fitness prediction and explainability
 
-## Installation qPacking2
+## Installation qPacking-ESM
 ```
 python=3.10.13
 (GPU) conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  pytorch-cuda=11.8 -c pytorch -c nvidia
