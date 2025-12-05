@@ -44,8 +44,6 @@ def load_existing_results(pkl_file):
         logger.error(e)
         return {}
 
-def nth_root(x, n):
-    return np.power(x, 1/n)
 
 def replace_pkl(all_pkl, addit_pkl, output_pkl):
     all_features = load_existing_results(all_pkl)
