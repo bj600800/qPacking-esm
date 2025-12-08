@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/7/27
 
-# Description: Fitness data patch
+# Description: format fitness dataset from csv and fasta to pkl
 # ------------------------------------------------------------------------------
 """
 import csv

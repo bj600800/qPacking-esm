@@ -4,7 +4,7 @@
 # Email:     bj600800@gmail.com
 # DATE:      2025/9/29
 
-# Description: Model headers for classification, regression and contrastive learning
+# Description: Model headers for classification, regression
 # ------------------------------------------------------------------------------
 """
 import torch

@@ -5,7 +5,6 @@
 # DATE:      2025/9/29
 
 # Description: Base model with LoRA adaptation
-[TEST PASS 100%]
 # ------------------------------------------------------------------------------
 """
 import torch
