@@ -8,12 +8,9 @@
 # ------------------------------------------------------------------------------
 """
 import os
-import math
-import numpy as np
 from tqdm import tqdm
 import pickle
 from qpacking_esm.common import logger
-from qpacking_esm.common.statis_plot_feature import plot_feature
 
 logger = logger.setup_log(name=__name__)
 
@@ -85,7 +82,8 @@ def split_feature(feature, key, data_type):
         length = v['length']
         if key=='class':
             single_feature[k] = v[key]
-        elif key == 'bsa':  # normalized by length
+
+        elif key == 'bsa':
             single_feature[k] = {key: value/length for key, value in v[key].items()}
 
         elif key=='order':

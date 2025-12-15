@@ -11,7 +11,7 @@ import csv
 import pickle
 from Bio import SeqIO
 
-HYDROPHOBIC_AA = set('AVILM')  # 疏水氨基酸集合
+HYDROPHOBIC_AA = set('AVILM')
 def read_seq(fasta_path):
     seq_dict = {}
     for record in SeqIO.parse(fasta_path, "fasta"):
@@ -46,7 +46,7 @@ def get_dataset(seq_dict, data_list, offset_idx):
         wt_aa = seq_dict[seq_name][pos]
         mt_aa = data[3]
 
-        # 样本筛选
+
         if wt_aa not in HYDROPHOBIC_AA or mt_aa not in HYDROPHOBIC_AA:
             continue
         dataset.append({
@@ -63,7 +63,7 @@ def dump_pkl(dataset, pkl_path):
 
 
 if __name__ == '__main__':
-    import os
+
     csv_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.csv"
     fasta_file = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.fasta"
     pkl_path = r"/Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.pkl"

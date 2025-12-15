@@ -260,9 +260,6 @@ def run_fitness_with_mlflow(config):
     """
     task = config.training_args.task
 
-    # --------------------------
-    # Build experiment name
-    # --------------------------
     model_src = config.path.model_src
     pkl_name = os.path.basename(config.path.feature_pkl).split('.')[0]
     unfrozen_layers = config.training_args.unfreeze_last_n
@@ -275,9 +272,6 @@ def run_fitness_with_mlflow(config):
 
     experiment_name = f"{task}_{base_model_name}_{pkl_name}"
 
-    # --------------------------
-    # Set MLflow experiment
-    # --------------------------
     try:
         mlflow.set_experiment(experiment_name)
         logger.info(f"MLflow experiment set to: {experiment_name}")
@@ -287,16 +281,10 @@ def run_fitness_with_mlflow(config):
         logger.error(f"Experiment existed but deleted, restored: {experiment_name}")
         raise
 
-    # --------------------------
-    # Run name
-    # --------------------------
     timestamp = datetime.now().strftime("%Y%m%d-%H:%M")
     run_name = f"{timestamp}_{task}_{base_model_name}_{pkl_name}_unfrozen:{unfrozen_layers}_{emb_src}"
     logger.info(f"MLflow run name: {run_name}")
 
-    # --------------------------
-    # Start MLflow Run
-    # --------------------------
     with mlflow.start_run(run_name=run_name):
 
         mlflow.set_tags({
@@ -309,9 +297,6 @@ def run_fitness_with_mlflow(config):
         })
         logger.info("MLflow tags set for fitness regression.")
 
-        # ----------------------
-        # Run training
-        # ----------------------
         fitness_regression(config)
 
 def run_hydrophobic_binary_with_mlflow(config):

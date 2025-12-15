@@ -1,17 +1,17 @@
 path:
   # Input
-  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/hpd/degree/degree-lora2/checkpoint-15500
+  model_dir: /Users/douzhixin/Developer/qPacking2/data/checkpoints/adjust_weight_55111_81/checkpoint-3500
   model_src: finetuned
 #  model_dir: /Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D
 #  model_src: official
-  seq_fasta: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.fasta
-  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1.pkl
+  seq_fasta: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/ss/ss.fasta
+  feature_pkl: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/ss/ss.pkl
 
 
   # Output
   checkpoints_dir: /Users/douzhixin/Developer/qPacking-esm/data/test/checkpoints
   logging_dir: /Users/douzhixin/Developer/qPacking-esm/data/logs
-  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/if1/if1_tokenized_cache
+  tokenized_cache_path: /Users/douzhixin/Developer/qPacking-esm/data/benchmark/done/ss/ss_tokenized_cache
 
 training_args:
   task: fitness
@@ -19,7 +19,7 @@ training_args:
   emb_src: pos
   seed: 3407
   lr: 2.0e-5
-  num_epochs: 100
+  num_epochs: 200
   batch_size: 16
   test_ratio: 0.2
   eval_strategy: steps

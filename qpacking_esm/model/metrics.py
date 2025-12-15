@@ -30,7 +30,6 @@ def compute_binary_metrics(eval_preds):
     )
     acc = accuracy_score(true_labels, true_predictions)
 
-    # AUC
     try:
         auc = roc_auc_score(true_labels, true_probs)
     except ValueError:
@@ -63,12 +62,10 @@ def compute_regression_metrics(eval_pred):
     rmse = np.sqrt(mse)
     mae = np.mean(np.abs(y_true - y_pred))
 
-    # R²
     ss_total = np.sum((y_true - np.mean(y_true)) ** 2)
     ss_res = np.sum((y_true - y_pred) ** 2)
     r2 = 1 - ss_res / ss_total if ss_total > 0 else float("nan")
 
-    # Pearson & Spearman
     pearson_corr = pearsonr(y_true, y_pred)[0]
     spearman_corr = spearmanr(y_true, y_pred)[0]
 

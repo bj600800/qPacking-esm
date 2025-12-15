@@ -20,9 +20,6 @@ from qpacking_esm.model.heads import ClassificationHead, RegressionHead
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# ---------------------------------------------------------
-# Task Model: 分类或回归
-# ---------------------------------------------------------
 class TaskModel(nn.Module):
     def __init__(self, backbone, head_path, task_type="classification"):
         super().__init__()
@@ -30,7 +27,6 @@ class TaskModel(nn.Module):
         self.task_type = task_type
         hidden_size = backbone.config.hidden_size
 
-        # 无论pre还是post，都加载训练好的 head
         if task_type == "classification":
             self.head = ClassificationHead(hidden_size, 2)
             state_dict = torch.load(head_path, map_location="cpu")
@@ -52,16 +48,12 @@ class TaskModel(nn.Module):
         hidden = hidden[:, 1:-1, :]  # remove CLS/EOS
         return self.head(hidden)
 
-    # 提取 backbone embedding，不经过 head
     def get_embedding(self, input_ids, attention_mask=None):
         with torch.no_grad():
             hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
             hidden = hidden[:, 1:-1, :]
         return hidden
 
-# ---------------------------------------------------------
-# Load models (pretrained / finetuned)
-# ---------------------------------------------------------
 def load_model(path, is_finetuned=False):
     if not is_finetuned:
         model = EsmModel.from_pretrained(path, add_pooling_layer=False)
@@ -73,9 +65,6 @@ def load_model(path, is_finetuned=False):
         tokenizer = EsmTokenizer.from_pretrained(peft_config.base_model_name_or_path)
     return model.to(device).eval(), tokenizer
 
-# ---------------------------------------------------------
-# Extract embeddings + predictions (分类)
-# ---------------------------------------------------------
 def extract_pred_values_classification(clf_model, tokenizer, seqs, max_per_seq=400):
     preds = []
     embs  = []
@@ -100,9 +89,6 @@ def extract_pred_values_classification(clf_model, tokenizer, seqs, max_per_seq=4
         embs.append(hidden.cpu())
     return np.concatenate(preds, axis=0), torch.cat(embs, dim=0).numpy()
 
-# ---------------------------------------------------------
-# Extract embeddings + predictions (回归)
-# ---------------------------------------------------------
 def extract_pred_values_regression(reg_model, tokenizer, seqs, max_per_seq=400):
     vals = []
     embs = []
@@ -127,16 +113,10 @@ def extract_pred_values_regression(reg_model, tokenizer, seqs, max_per_seq=400):
         embs.append(hidden.cpu())
     return np.concatenate(vals, axis=0), torch.cat(embs, dim=0).numpy()
 
-# ---------------------------------------------------------
-# t-SNE
-# ---------------------------------------------------------
 def run_tsne(X, perplex=60):
     tsne = TSNE(n_components=2, perplexity=perplex, learning_rate="auto", init="pca", random_state=200)
     return tsne.fit_transform(X)
 
-# ---------------------------------------------------------
-# Plot t-SNE (分类 / 回归)
-# ---------------------------------------------------------
 def plot_tsne(X2d, plot_path, labels=None, values=None, title="", legend_type="pred", is_regression=False):
     plt.figure(figsize=(7, 7))
     if is_regression and values is not None:
@@ -166,9 +146,6 @@ def plot_tsne(X2d, plot_path, labels=None, values=None, title="", legend_type="p
     plt.savefig(plot_path, dpi=600)
     plt.show()
 
-# ---------------------------------------------------------
-# Main
-# ---------------------------------------------------------
 if __name__ == "__main__":
     official_dir  = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D"
     finetuned_dir = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/hpd/bsa/bsa-lora1/checkpoint-3500"
@@ -183,10 +160,8 @@ if __name__ == "__main__":
 
     head_path = os.path.join(finetuned_dir, "task_head.pt")
 
-    # -------------------
-    # 分类任务
-    # -------------------
-    ## Pre-trained backbone + trained head
+
+    ## classification task
     # clf_model_pre = TaskModel(model_pre, head_path=head_path, task_type="classification")
     # pred_before, emb_before_clf = extract_pred_values_classification(clf_model_pre, tok_pre, seqs)
     # X2d_pred_before = run_tsne(emb_before_clf)
@@ -201,9 +176,7 @@ if __name__ == "__main__":
     # plot_path_finetuned = os.path.join(plot_dir, f"tsne_{task}_finetuned.png")
     # plot_tsne(X2d_pred_after, labels=pred_after, title="Fine-tuned Backbone + Trained Head", legend_type="pred", plot_path=plot_path_finetuned)
 
-    # -------------------
-    # 回归任务（可选）
-    # -------------------
+    ## regression task
     reg_model_pre = TaskModel(model_pre, head_path=head_path, task_type="regression")
     val_before, emb_before_reg = extract_pred_values_regression(reg_model_pre, tok_pre, seqs)
     X2d_reg_before = run_tsne(emb_before_reg)

@@ -32,7 +32,6 @@ def unfreeze_backbone(model, unfreeze_last_n, model_prefix):
     """
     Freeze the backbone model parameters.
     """
-    # unfrozen the last layers
     if unfreeze_last_n > 0:
         layer_nums = set()
         for name, _ in model.named_parameters():

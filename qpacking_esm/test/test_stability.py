@@ -21,21 +21,6 @@ logger = logger.setup_log(name=__name__)
 
 
 def load_model_and_tokenizer(model_path, device):
-    # # 1. 读取PEFT配置，获得基础模型路径
-    # peft_config = PeftConfig.from_pretrained(model_path)
-    #
-    # # 2. 加载官方ESM2基础模型（带MLM头）
-    # base_model = EsmForMaskedLM.from_pretrained(peft_config.base_model_name_or_path).to(device)
-    #
-    # # 3. 加载LoRA微调权重（只针对编码器部分）
-    # lora_model = PeftModel.from_pretrained(base_model.esm, model_path).to(device)
-    #
-    # # 4. 用LoRA模型替换基础模型的编码器
-    # base_model.esm = lora_model
-    # base_model.eval()
-    #
-    # # 5. 加载tokenizer（从微调目录）
-    # tokenizer = EsmTokenizer.from_pretrained(model_path)
     base_model = EsmForMaskedLM.from_pretrained(model_path).to(device)
     tokenizer = EsmTokenizer.from_pretrained(model_path)
     base_model.eval()

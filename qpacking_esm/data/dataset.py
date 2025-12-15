@@ -24,11 +24,6 @@ from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-
-# =============================================================================
-# Utility
-# =============================================================================
-
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -37,10 +32,6 @@ def set_seed(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-
-# =============================================================================
-# Base Encoder
-# =============================================================================
 
 class BaseEncoder:
     """Base class shared by structure encoders and fitness encoder."""
@@ -51,7 +42,6 @@ class BaseEncoder:
         self.mu = 0.0
         self.sigma = 1.0
 
-    # Z-score
     @staticmethod
     def compute_zscore(values):
         arr = np.array(values)
@@ -59,7 +49,6 @@ class BaseEncoder:
         sigma = arr.std() or 1.0
         return float(mu), float(sigma)
 
-    # JSON save/load
     def dump_mu_sigma(self, path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
@@ -73,10 +62,6 @@ class BaseEncoder:
         self.sigma = d["sigma"]
         logger.info(f"Loaded mu={self.mu} sigma={self.sigma} ← {path}")
 
-
-# =============================================================================
-# Structure Feature Dataset (sequence + residue-level label)
-# =============================================================================
 
 class DataEncoder(BaseEncoder):
 
@@ -94,7 +79,6 @@ class DataEncoder(BaseEncoder):
         self.pkl_file = pkl_file
         self.task = task
 
-    # Convert raw pkl → {"id", "sequence", "labels"}
     def format_raw(self, pkl_data):
         seqs = load_existing_results(self.seq_pkl)
         formatted = []
@@ -108,13 +92,12 @@ class DataEncoder(BaseEncoder):
             first_id = min(seq_dict.keys())
             L = len(seq)
 
-            # 初始化 labels
+            # init labels
             if self.task in ["position", "rsa"]:
                 labels = [0] * L
             else:
                 labels = [-100] * L
 
-            # 填充 feature 对应位置
             for res_id, v in feature.items():
                 idx = res_id - first_id
 
@@ -132,7 +115,6 @@ class DataEncoder(BaseEncoder):
             })
         return formatted
 
-    # Tokenize with task-specific encoders
     def encode_item(self, x):
         tok = self.tokenizer(x["sequence"], padding=False, return_attention_mask=True)
         tok["labels"] = [-100] + x["labels"] + [-100]
@@ -163,9 +145,6 @@ class DataEncoder(BaseEncoder):
         cache_test = os.path.join(cache_root, "test")
         mu_sigma_file = os.path.join(cache_root, "mu_sigma.json")
 
-        # --------------------------------------------------------
-        # 0️⃣ 若 train/test 缓存都存在 → 直接加载（不重复归一化、不重复 tokenize）
-        # --------------------------------------------------------
         if os.path.exists(cache_train) and os.path.exists(cache_test):
             logger.info(f"[{self.task}] Loading cached tokenized dataset...")
             tokenized_train = load_from_disk(cache_train)
@@ -173,24 +152,15 @@ class DataEncoder(BaseEncoder):
             total = len(tokenized_train) + len(tokenized_test)
             return tokenized_train, tokenized_test, total
 
-        # --------------------------------------------------------
-        # 1️⃣ 读取原始 pkl
-        # --------------------------------------------------------
         raw = load_existing_results(self.pkl_file)
         formatted = self.format_raw(raw)
         dataset = Dataset.from_list(formatted)
         total = len(dataset)
 
-        # --------------------------------------------------------
-        # 2️⃣ train/test split —— 这一步必须在计算 z-score 前执行
-        # --------------------------------------------------------
         split = dataset.train_test_split(test_size=test_ratio, seed=seed)
         train_dataset = split["train"]
         test_dataset = split["test"]
 
-        # --------------------------------------------------------
-        # 3️⃣ 计算 train 的 μ/σ（仅非分类任务）
-        # --------------------------------------------------------
         if self.task not in ["position", "rsa"]:
             logger.info(f"[{self.task}] Computing Z-score on TRAIN only...")
 
@@ -213,9 +183,6 @@ class DataEncoder(BaseEncoder):
             logger.info(f"Normalizing test set")
             test_dataset = test_dataset.map(normalize)
 
-        # --------------------------------------------------------
-        # 4️⃣ Tokenization：对 train/test 分别 tokenize 并缓存
-        # --------------------------------------------------------
         logger.info(f"[{self.task}] Tokenizing train...")
         tokenized_train = train_dataset.map(
             lambda x: self.encode_item(x),
@@ -233,21 +200,12 @@ class DataEncoder(BaseEncoder):
         return tokenized_train, tokenized_test, total
 
 
-# =============================================================================
-# Collator with label padding
-# =============================================================================
-
 class LabelPaddingCollator(DataCollatorWithPadding):
     def __call__(self, features):
         max_len = max(len(f["labels"]) for f in features)
         for f in features:
             f["labels"] += [-100] * (max_len - len(f["labels"]))
         return super().__call__(features)
-
-
-# =============================================================================
-# Structure Loader
-# =============================================================================
 
 def run_structure_encoder(seq_pkl, feature_pkl, model_dir, tokenized_cache_path, task, test_ratio, batch_size, seed):
     set_seed(seed)
@@ -265,10 +223,6 @@ def run_structure_encoder(seq_pkl, feature_pkl, model_dir, tokenized_cache_path,
     return train, val, tokenizer
 
 
-# =============================================================================
-# Fitness Dataset (wt–mt pair)
-# =============================================================================
-
 class FitnessData(BaseEncoder):
     def __init__(self, pkl_file, tokenizer, cache_dir):
         super().__init__(tokenizer, cache_dir)
@@ -280,7 +234,6 @@ class FitnessData(BaseEncoder):
         with open(path, "rb") as f:
             return pickle.load(f)
 
-    # 训练集计算 μ/σ → 应用于训练/测试集
     def zscore_split(self, train_items, test_items):
         vals = [x["fitness"] for x in train_items]
         self.mu, self.sigma = self.compute_zscore(vals)
@@ -325,18 +278,16 @@ class FitnessData(BaseEncoder):
         return tokenized
 
     def get(self, test_ratio, seed):
-        # 1️⃣ 划分训练/测试
+
         raw = self.read_pkl(self.pkl_file)
         split_idx = int(len(raw) * (1 - test_ratio))
         random.Random(seed).shuffle(raw)
         train_items, test_items = raw[:split_idx], raw[split_idx:]
-        # 2️⃣ 训练集计算 μ/σ → 归一化
         train_items, test_items = self.zscore_split(train_items, test_items)
 
         dataset_train = Dataset.from_list(train_items)
         dataset_test = Dataset.from_list(test_items)
 
-        # 3️⃣ Tokenize
         tokenized_train = self.tokenize(dataset_train, cache_name="train")
         tokenized_test = self.tokenize(dataset_test, cache_name="test")
 

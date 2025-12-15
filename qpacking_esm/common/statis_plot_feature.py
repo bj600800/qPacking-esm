@@ -109,7 +109,6 @@ def plot_feature(load_existing_results, feature_name, dtype=None, bins=11):
     for i in frequencies:
         print(i)
 
-    # 绘图
     plt.figure(figsize=(6, 4))
     plt.bar(bin_centers, frequencies, width=bin_widths,
             edgecolor="black", color="#FFB050",

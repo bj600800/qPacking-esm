@@ -7,17 +7,16 @@
 # ------------------------------------------------------------------------------
 import pandas as pd
 import matplotlib.pyplot as plt
-from qpacking.common import logger
+from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
 file_path = r"/home/u2600215/qpacking_esm/data/work/80_seq/80_resultDB.txt"
 df = pd.read_csv(file_path, sep=' ', header=None, names=["col1", "col2", "value"])
 bins = [0, 0.25, 0.5, 0.75, 1.0]
-# x label names
+
 labels = ['[0, 0.25]', '[0.25, 0.50]', '[0.50, 0.75]', '[0.75, 1.0]']
 
-# divided values depend on bins.
 df['value_group'] = pd.cut(df['value'], bins=bins, labels=labels, right=False)
 
 frequency = df['value_group'].value_counts(sort=False)
@@ -31,7 +30,6 @@ plt.ylabel('Percentage (%)', fontsize=16)
 plt.title('80')
 plt.ylim(0, max(percentage.values) * 1.1)
 
-# show percentage number on the plot bars
 for i, v in enumerate(percentage.values):
     plt.text(i, v + 1, f"{v:.2f}%", ha='center', va='bottom', fontsize=14)
 
