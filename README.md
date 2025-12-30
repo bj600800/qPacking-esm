@@ -32,6 +32,10 @@ conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
 
-## Run qPacking-esm
+## Train qPacking-ESM
+
+  ```
+  python train_qpacking_esm.py --yaml [config file path in train_configs dir] 
+  ```
 
 ## Cite

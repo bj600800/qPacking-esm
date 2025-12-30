@@ -15,15 +15,52 @@ from qpacking_esm.common import logger
 
 logger = logger.setup_log(name=__name__)
 
-def load_model_and_tokenizer(model_path, device):
+# def load_model_and_tokenizer(model_path, device):
+#     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+#     model = AutoModelForMaskedLM.from_pretrained(
+#         model_path,
+#         trust_remote_code=True,
+#         torch_dtype=torch.float16
+#     ).to(device)
+#     return tokenizer, model
+
+
+def load_model_and_tokenizer(model_path, device, use_lora=False):
+    """
+    加载 MaskedLM 模型和 tokenizer。
+
+    参数:
+        model_path (str): 模型路径或名称。
+        device (str): 'cuda' 或 'cpu'。
+        use_lora (bool): 是否加载 LoRA。
+        lora_config (dict): LoRA 配置字典，必须包含 'target_modules' 等信息。
+
+    返回:
+        tokenizer, model
+    """
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+
     model = AutoModelForMaskedLM.from_pretrained(
         model_path,
         trust_remote_code=True,
         torch_dtype=torch.float16
     ).to(device)
-    return tokenizer, model
 
+    if use_lora:
+        from peft import LoraConfig, get_peft_model, TaskType
+        num_layers = len(model.base_model.encoder.layer)
+        target_modules = [f"{num_layers - 3 + i}" for i in range(3)]
+        lora_config = LoraConfig(
+            r=8,
+            lora_alpha=8,
+            target_modules=target_modules,
+            lora_dropout=0.05,
+            bias="none",
+            task_type=TaskType.MLM
+        )
+        model = get_peft_model(model, lora_config)
+
+    return tokenizer, model
 
 def get_token_probs_wt_marginals(model, inputs):
     with torch.no_grad():
@@ -100,10 +137,10 @@ def score_with_pseudo_ppl(df, sequence, model, tokenizer, offset_idx, mutation_c
     return df
 
 
-def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, scoring_strategy, dms_output):
+def main(model_path, use_lora, model_name, sequence, dms_input, offset_idx, mutation_col, scoring_strategy, dms_output):
     df = pd.read_csv(dms_input)
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    tokenizer, model = load_model_and_tokenizer(model_path, device)
+    tokenizer, model = load_model_and_tokenizer(model_path, device, use_lora=use_lora)
     inputs = tokenizer(sequence, return_tensors="pt").to(device)
     input_ids = inputs["input_ids"]
 
@@ -130,6 +167,7 @@ def main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, 
 
 if __name__ == "__main__":
     model_path = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D"
+    use_lora = True
     model_name = "esm2_t30_150M_UR50D"
     sequence = "ERVKIIAEFKKASPSAGDINADASLEDFIRMYDELADAISILTEKHYFKGDPAFVRAARNLTSRPILAKDFYIDTVQVKLASSVGADAILIIARILTAEQIKEIYEAAEELGMDSLVEVHSREDLEKVFSVIRPKIIGINTRDLDTFEIKKNVLWELLPLVPDDTVVVAESGIKDPRELKDLRGKVNAVLVGTSIMKAENPRRFLEEMRAWSE"
     dms_input = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/tm.csv"
