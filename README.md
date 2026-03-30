@@ -44,3 +44,8 @@ conda install libboost==1.73.0
   https://zenodo.org/records/18297653
   ```
 
+## Download ESM2 model on Huggingface
+
+  ```
+  https://huggingface.co/facebook/esm2_t30_150M_UR50D/tree/main
+  ```
