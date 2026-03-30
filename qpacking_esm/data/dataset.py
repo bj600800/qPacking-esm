@@ -65,14 +65,6 @@ class BaseEncoder:
 
 class DataEncoder(BaseEncoder):
 
-    ENCODERS = {
-        "position": "binary",
-        "degree": "regression",
-        "area": "regression",
-        "rsa": "regression",
-        "order": "regression"
-    }
-
     def __init__(self, seq_pkl, pkl_file, tokenizer, cache_dir, task):
         super().__init__(tokenizer, cache_dir)
         self.seq_pkl = seq_pkl

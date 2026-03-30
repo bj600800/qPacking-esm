@@ -38,3 +38,9 @@ conda install libboost==1.73.0
   python train_qpacking_esm.py --yaml [config file path in train_configs dir] 
   ```
 
+## Find single HPD fine-tuned model on Zenodo
+
+  ```
+  https://zenodo.org/records/18297653
+  ```
+

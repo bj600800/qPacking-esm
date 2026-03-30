@@ -10,6 +10,7 @@
 from tqdm import tqdm
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 from qpacking_esm.common import logger
 
@@ -175,4 +176,16 @@ if __name__ == "__main__":
     mutation_col = "mutant"
     scoring_strategy = "wt-marginals"  # or "masked-marginals" or "pseudo-ppl"
     dms_output = "/Users/douzhixin/Developer/qPacking-esm/data/benchmark/tim-db/tm_output.csv"
-    main(model_path, model_name, sequence, dms_input, offset_idx, mutation_col, scoring_strategy, dms_output)
+    main(model_path, use_lora, model_name, sequence, dms_input, offset_idx, mutation_col, scoring_strategy, dms_output)
+
+    # model_before = "/Users/douzhixin/Developer/qPacking-esm/data/checkpoints/esm2_t30_150M_UR50D"
+    # model_after = "/Users/douzhixin/Developer/qPacking2/data/checkpoints/adjust_weight_55111/checkpoint-3000"
+    #
+    # sequence = "ERVKIIAEFKKASPSAGDINADASLEDFIRMYDELADAISILTEKHYFKGDPAFVRAARNLTSRPILAKDFYIDTVQVKLASSVGADAILIIARILTAEQIKEIYEAAEELGMDSLVEVHSREDLEKVFSVIRPKIIGINTRDLDTFEIKKNVLWELLPLVPDDTVVVAESGIKDPRELKDLRGKVNAVLVGTSIMKAENPRRFLEEMRAWSE"
+    #
+    # compute_embedding_cosine(
+    #     model_before,
+    #     model_after,
+    #     sequence,
+    #     use_lora=True
+    # )
