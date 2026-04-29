@@ -32,14 +32,25 @@ conda install salilab::dssp (version=3.0.0)
 conda install libboost==1.73.0
 ```
 
+## Download ESM2 model on Huggingface
+
+  ```
+  https://huggingface.co/facebook/esm2_t30_150M_UR50D/tree/main
+  ```
+
 ## Train qPacking-ESM
 
   ```
   python train_qpacking_esm.py --yaml [config file path in train_configs dir] 
   ```
 
-## Download ESM2 model on Huggingface
+## qPacking-ESM Prediction
 
   ```
-  https://huggingface.co/facebook/esm2_t30_150M_UR50D/tree/main
+  python predict.py 
+  --model_path [regression model dir] 
+  --reg_ckpt [model_path/regression_head.pt] 
+  --fasta_file [fasta_file] 
+  --output_file [csv_file]
+  --positions [residue position] e.g. 1,2,3...
   ```
